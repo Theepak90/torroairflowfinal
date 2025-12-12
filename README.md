@@ -1,12 +1,12 @@
 # Torro Data Discovery System
 
-A comprehensive data discovery and governance system that automatically discovers files in Azure Blob Storage, extracts metadata (column headers only - banking compliant), detects PII, and provides a web interface for data governance.
+A comprehensive data discovery and governance system that automatically discovers files in Azure Blob Storage, extracts metadata (column headers only - banking compliant), and provides a web interface for data governance.
 
 ## Features
 
 - 🔍 **Automatic File Discovery**: Scans Azure Blob Storage containers for CSV, JSON, and Parquet files
 - 🏦 **Banking Compliant**: Only extracts column headers/names - never downloads actual data rows
-- 🔐 **PII Detection**: Automatically detects PII in column names (email, phone, SSN, credit card, etc.)
+- 🔐 **Azure DLP PII Detection**: Uses Azure AI Language service for accurate PII detection in column names
 - 📊 **Web Dashboard**: React-based frontend for viewing and managing discovered files
 - 📧 **Email Notifications**: Sends notifications when new files are discovered
 - 🔄 **Deduplication**: Prevents duplicate entries using ETag-based hashing
@@ -138,6 +138,12 @@ cp .env.example .env
 # Edit .env with your actual credentials
 ```
 
+**Note**: For Azure DLP PII detection, you need to create an Azure AI Language resource:
+- Go to Azure Portal → Create Resource → Azure AI Language
+- After creation, copy the Endpoint and Key from "Keys and Endpoint" section
+- Add them to your `.env` file as `AZURE_AI_LANGUAGE_ENDPOINT` and `AZURE_AI_LANGUAGE_KEY`
+- If not configured, PII detection will be disabled (system will still work)
+
 5. Initialize Airflow database:
 
 ```bash
@@ -249,7 +255,6 @@ airflow scheduler
 This system is designed for banking/financial data compliance:
 
 - ✅ **Only extracts column headers/names** - never downloads actual data rows
-- ✅ **PII detection based on column names only** - no data value analysis
 - ✅ **Minimal bandwidth** - only 1-8KB per file (headers/schema metadata)
 - ✅ **ETag-based hashing** - no full file downloads for deduplication
 

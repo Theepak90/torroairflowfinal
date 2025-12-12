@@ -34,6 +34,13 @@ DB_CONFIG = {
     "database": os.getenv("MYSQL_DATABASE", "torro_discovery"),
 }
 
+# Azure AI Language (DLP) Configuration
+AZURE_AI_LANGUAGE_CONFIG = {
+    "endpoint": os.getenv("AZURE_AI_LANGUAGE_ENDPOINT", ""),
+    "key": os.getenv("AZURE_AI_LANGUAGE_KEY", ""),
+    "enabled": bool(os.getenv("AZURE_AI_LANGUAGE_ENDPOINT") and os.getenv("AZURE_AI_LANGUAGE_KEY"))
+}
+
 def get_storage_location_json(account_name: str, container: str, blob_path: str) -> Dict:
     return {
         "type": "azure_blob",

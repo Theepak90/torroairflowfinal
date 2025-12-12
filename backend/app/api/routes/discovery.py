@@ -52,7 +52,7 @@ def get_discoveries():
         }), 200
         
     except Exception as e:
-        logger.error(f"Error getting discoveries: {str(e)}")
+        logger.error('FN:get_discoveries page:{} size:{} error:{}'.format(page, size, str(e)))
         return jsonify({'error': str(e)}), 500
 
 
@@ -67,7 +67,7 @@ def get_discovery(discovery_id):
         return jsonify(discovery), 200
         
     except Exception as e:
-        logger.error(f"Error getting discovery {discovery_id}: {str(e)}")
+        logger.error('FN:get_discovery discovery_id:{} error:{}'.format(discovery_id, str(e)))
         return jsonify({'error': str(e)}), 500
 
 
@@ -100,7 +100,7 @@ def approve_discovery(discovery_id):
     except ValueError as e:
         return jsonify({'error': str(e)}), 404
     except Exception as e:
-        logger.error(f"Error approving discovery {discovery_id}: {str(e)}")
+        logger.error('FN:approve_discovery discovery_id:{} approved_by:{} error:{}'.format(discovery_id, data.get('approved_by', 'N/A'), str(e)))
         return jsonify({'error': str(e)}), 500
 
 
@@ -134,7 +134,7 @@ def reject_discovery(discovery_id):
     except ValueError as e:
         return jsonify({'error': str(e)}), 404
     except Exception as e:
-        logger.error(f"Error rejecting discovery {discovery_id}: {str(e)}")
+        logger.error('FN:reject_discovery discovery_id:{} rejected_by:{} error:{}'.format(discovery_id, data.get('rejected_by', 'N/A'), str(e)))
         return jsonify({'error': str(e)}), 500
 
 
@@ -144,5 +144,5 @@ def get_stats():
         stats = DiscoveryService.get_summary_stats()
         return jsonify(stats), 200
     except Exception as e:
-        logger.error(f"Error getting stats: {str(e)}")
+        logger.error('FN:get_stats error:{}'.format(str(e)))
         return jsonify({'error': str(e)}), 500

@@ -56,11 +56,11 @@ class AzureBlobClient:
                 
                 blobs.append(blob_info)
             
-            logger.info(f"Found {len(blobs)} blobs in container '{container_name}' folder '{folder_path}'")
+            logger.info('FN:list_blobs container_name:{} folder_path:{} blob_count:{}'.format(container_name, folder_path, len(blobs)))
             return blobs
             
         except Exception as e:
-            logger.error(f"Error listing blobs: {str(e)}")
+            logger.error('FN:list_blobs container_name:{} folder_path:{} error:{}'.format(container_name, folder_path, str(e)))
             raise
     
     def get_blob_content(self, container_name: str, blob_path: str) -> bytes:
@@ -71,7 +71,7 @@ class AzureBlobClient:
             )
             return blob_client.download_blob().readall()
         except Exception as e:
-            logger.error(f"Error downloading blob {blob_path}: {str(e)}")
+            logger.error('FN:get_blob_content container_name:{} blob_path:{} error:{}'.format(container_name, blob_path, str(e)))
             raise
     
     def get_blob_sample(self, container_name: str, blob_path: str, max_bytes: int = 1024) -> bytes:
@@ -87,7 +87,7 @@ class AzureBlobClient:
             # Download only first max_bytes (just enough for headers/keys - NO data)
             return blob_client.download_blob(offset=0, length=max_bytes).readall()
         except Exception as e:
-            logger.warning(f"Error getting blob sample for {blob_path}: {str(e)}")
+            logger.warning('FN:get_blob_sample container_name:{} blob_path:{} max_bytes:{} error:{}'.format(container_name, blob_path, max_bytes, str(e)))
             return b""
     
     def get_blob_tail(self, container_name: str, blob_path: str, max_bytes: int = 8192) -> bytes:
@@ -106,7 +106,7 @@ class AzureBlobClient:
             length = min(max_bytes, file_size)
             return blob_client.download_blob(offset=offset, length=length).readall()
         except Exception as e:
-            logger.warning(f"Error getting blob tail for {blob_path}: {str(e)}")
+            logger.warning('FN:get_blob_tail container_name:{} blob_path:{} max_bytes:{} error:{}'.format(container_name, blob_path, max_bytes, str(e)))
             return b""
     
     def get_blob_properties(self, container_name: str, blob_path: str) -> Dict:
@@ -131,7 +131,7 @@ class AzureBlobClient:
                 "metadata": properties.metadata,
             }
         except Exception as e:
-            logger.error(f"Error getting blob properties for {blob_path}: {str(e)}")
+            logger.error('FN:get_blob_properties container_name:{} blob_path:{} error:{}'.format(container_name, blob_path, str(e)))
             raise
     
     def upload_blob(self, container_name: str, blob_path: str, content: bytes, content_type: str = "text/plain"):
@@ -142,7 +142,7 @@ class AzureBlobClient:
             )
             content_settings = ContentSettings(content_type=content_type)
             blob_client.upload_blob(content, overwrite=True, content_settings=content_settings)
-            logger.info(f"Uploaded blob {blob_path} to container {container_name}")
+            logger.info('FN:upload_blob container_name:{} blob_path:{} content_type:{}'.format(container_name, blob_path, content_type))
         except Exception as e:
-            logger.error(f"Error uploading blob {blob_path}: {str(e)}")
+            logger.error('FN:upload_blob container_name:{} blob_path:{} error:{}'.format(container_name, blob_path, str(e)))
             raise

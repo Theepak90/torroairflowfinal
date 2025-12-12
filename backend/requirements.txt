@@ -5,4 +5,5 @@ pymysql==1.1.0
 cryptography==41.0.7
 python-dotenv==1.0.0
 pydantic==2.5.0
+DBUtils==3.0.3
 

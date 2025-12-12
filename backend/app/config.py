@@ -17,6 +17,11 @@ class Config:
     
     DEFAULT_PAGE_SIZE = 50
     MAX_PAGE_SIZE = 100
+    
+    # MySQL Connection Pool Settings
+    DB_POOL_MIN = int(os.getenv('DB_POOL_MIN', '5'))  # Minimum connections in pool
+    DB_POOL_MAX = int(os.getenv('DB_POOL_MAX', '20'))  # Maximum connections in pool
+    DB_POOL_RECYCLE = int(os.getenv('DB_POOL_RECYCLE', '3600'))  # Recycle connections after 1 hour
 
 
 class DevelopmentConfig(Config):

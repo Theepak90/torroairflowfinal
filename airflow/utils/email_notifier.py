@@ -42,7 +42,7 @@ def get_new_discoveries() -> List[Dict]:
             cursor.execute(sql)
             return cursor.fetchall()
     except Exception as e:
-        logger.error(f"Error fetching new discoveries: {str(e)}")
+        logger.error('FN:get_new_discoveries error:{}'.format(str(e)))
         raise
     finally:
         if conn:
@@ -68,7 +68,7 @@ def update_notification_status(discovery_ids: List[int], recipients: List[str]):
             cursor.execute(sql, [recipients_json] + discovery_ids)
             conn.commit()
     except Exception as e:
-        logger.error(f"Error updating notification status: {str(e)}")
+        logger.error('FN:update_notification_status discovery_ids:{} recipients:{} error:{}'.format(len(discovery_ids), len(recipients), str(e)))
         raise
     finally:
         if conn:
@@ -77,7 +77,7 @@ def update_notification_status(discovery_ids: List[int], recipients: List[str]):
 
 def send_notification_email(discoveries: List[Dict], recipients: List[str]):
     if not discoveries or not recipients:
-        logger.info("No discoveries or recipients, skipping email")
+        logger.info('FN:send_notification_email discoveries_count:{} recipients_count:{}'.format(len(discoveries) if discoveries else 0, len(recipients) if recipients else 0))
         return
     
     try:
@@ -158,13 +158,13 @@ def send_notification_email(discoveries: List[Dict], recipients: List[str]):
         server.send_message(msg)
         server.quit()
         
-        logger.info(f"Notification email sent to {len(recipients)} recipients")
+        logger.info('FN:send_notification_email discoveries_count:{} recipients_count:{}'.format(len(discoveries), len(recipients)))
         
         discovery_ids = [d["id"] for d in discoveries]
         update_notification_status(discovery_ids, recipients)
         
     except Exception as e:
-        logger.error(f"Error sending notification email: {str(e)}")
+        logger.error('FN:send_notification_email discoveries_count:{} recipients_count:{} error:{}'.format(len(discoveries), len(recipients), str(e)))
         raise
 
 
@@ -176,9 +176,9 @@ def notify_new_discoveries():
             if recipients:
                 send_notification_email(discoveries, recipients)
             else:
-                logger.warning("No notification recipients configured")
+                logger.warning('FN:notify_new_discoveries discoveries_count:{} recipients_configured:{}'.format(len(discoveries), bool(recipients)))
         else:
-            logger.info("No new discoveries to notify")
+            logger.info('FN:notify_new_discoveries discoveries_count:{}'.format(0))
     except Exception as e:
-        logger.error(f"Error in notification process: {str(e)}")
+        logger.error('FN:notify_new_discoveries error:{}'.format(str(e)))
         raise

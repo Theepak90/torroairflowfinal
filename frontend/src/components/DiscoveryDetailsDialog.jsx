@@ -162,7 +162,7 @@ const DiscoveryDetailsDialog = ({ open, discovery, loading, onClose }) => {
                             <TableCell sx={{ fontWeight: 600 }}>Column Name</TableCell>
                             <TableCell sx={{ fontWeight: 600 }}>Type</TableCell>
                             <TableCell sx={{ fontWeight: 600 }}>Nullable</TableCell>
-                            <TableCell sx={{ fontWeight: 600 }}>PII Detection</TableCell>
+                            <TableCell sx={{ fontWeight: 600 }}>PII Detection (Azure DLP)</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -175,7 +175,7 @@ const DiscoveryDetailsDialog = ({ open, discovery, loading, onClose }) => {
                                 {column.pii_detected ? (
                                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                                     <Chip 
-                                      label="PII" 
+                                      label="PII Detected" 
                                       size="small" 
                                       color="error" 
                                       variant="filled"

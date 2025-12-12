@@ -155,7 +155,7 @@ class DiscoveryService:
                     
             except Exception as e:
                 conn.rollback()
-                logger.error(f"Error approving discovery {discovery_id}: {str(e)}")
+                logger.error('FN:approve_discovery discovery_id:{} approved_by:{} error:{}'.format(discovery_id, approved_by, str(e)))
                 raise
     
     @staticmethod
@@ -218,7 +218,7 @@ class DiscoveryService:
                     
             except Exception as e:
                 conn.rollback()
-                logger.error(f"Error rejecting discovery {discovery_id}: {str(e)}")
+                logger.error('FN:reject_discovery discovery_id:{} rejected_by:{} error:{}'.format(discovery_id, rejected_by, str(e)))
                 raise
     
     @staticmethod
