@@ -167,17 +167,23 @@ airflow users create \
 
 ```bash
 export AIRFLOW_HOME=$(pwd)
-airflow webserver --port 8080
+export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+MYSQL_PASS=$(grep MYSQL_PASSWORD .env | cut -d'=' -f2)
+export AIRFLOW__DATABASE__SQL_ALCHEMY_CONN="mysql+pymysql://root:${MYSQL_PASS}@localhost:3306/airflow_metadata"
+airflow webserver --port 8081
 ```
 
 8. Start Airflow scheduler (in another terminal):
 
 ```bash
 export AIRFLOW_HOME=$(pwd)
+export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+MYSQL_PASS=$(grep MYSQL_PASSWORD .env | cut -d'=' -f2)
+export AIRFLOW__DATABASE__SQL_ALCHEMY_CONN="mysql+pymysql://root:${MYSQL_PASS}@localhost:3306/airflow_metadata"
 airflow scheduler
 ```
 
-Access Airflow UI at `http://localhost:8080` (login with admin/admin)
+Access Airflow UI at `http://localhost:8081` (login with admin/admin)
 
 ## Environment Variables
 
@@ -225,7 +231,10 @@ npm run dev
 cd airflow
 source venv/bin/activate
 export AIRFLOW_HOME=$(pwd)
-airflow webserver --port 8080
+export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+MYSQL_PASS=$(grep MYSQL_PASSWORD .env | cut -d'=' -f2)
+export AIRFLOW__DATABASE__SQL_ALCHEMY_CONN="mysql+pymysql://root:${MYSQL_PASS}@localhost:3306/airflow_metadata"
+airflow webserver --port 8081
 ```
 
 4. **Airflow Scheduler** (Terminal 4):
@@ -233,6 +242,9 @@ airflow webserver --port 8080
 cd airflow
 source venv/bin/activate
 export AIRFLOW_HOME=$(pwd)
+export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+MYSQL_PASS=$(grep MYSQL_PASSWORD .env | cut -d'=' -f2)
+export AIRFLOW__DATABASE__SQL_ALCHEMY_CONN="mysql+pymysql://root:${MYSQL_PASS}@localhost:3306/airflow_metadata"
 airflow scheduler
 ```
 
@@ -240,7 +252,7 @@ airflow scheduler
 
 - **Frontend**: http://localhost:3000
 - **Backend API**: http://localhost:5001
-- **Airflow UI**: http://localhost:8080 (admin/admin)
+- **Airflow UI**: http://localhost:8081 (admin/admin)
 
 ### API Endpoints
 
@@ -299,17 +311,3 @@ torroairflow/
 2. Check Azure Storage account is accessible
 3. Verify container names are correct
 
-## Security Notes
-
-- ⚠️ **Never commit `.env` files** - they contain sensitive credentials
-- ✅ `.env` files are already in `.gitignore`
-- ✅ All credentials are loaded from environment variables
-- ✅ No hardcoded passwords or secrets in code
-
-## License
-
-[Your License Here]
-
-## Support
-
-For issues or questions, please contact [your-email@example.com]
