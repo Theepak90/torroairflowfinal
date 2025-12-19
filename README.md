@@ -1,551 +1,304 @@
-# Torro Data Discovery Platform
-
-A comprehensive data discovery and governance platform that automatically scans Azure Blob Storage, extracts file metadata and schemas, and provides a web interface for reviewing and managing discovered data assets.
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [Features](#features)
-- [Prerequisites](#prerequisites)
-- [Quick Start](#quick-start)
-- [Configuration](#configuration)
-- [Project Structure](#project-structure)
-- [Components](#components)
-- [API Documentation](#api-documentation)
-- [Database Schema](#database-schema)
-- [Development](#development)
-- [Troubleshooting](#troubleshooting)
-
-## Overview
-
-The Torro Data Discovery Platform is designed to help organizations discover, catalog, and manage their data assets stored in Azure Blob Storage. The system:
-
-- **Automatically scans** Azure Blob Storage containers at regular intervals
-- **Extracts metadata** including file schemas, sizes, timestamps, and hashes
-- **Detects changes** by comparing file hashes and schema hashes
-- **Provides a web UI** for reviewing, approving, and managing discovered files
-- **Sends notifications** when new files or schema changes are detected
-- **Maintains a searchable catalog** of all discovered data assets
-
-## Architecture
-
-The platform consists of three main components:
-
-```
-┌─────────────────┐
-│   Frontend      │  React + Material-UI (Port 3000)
-│   (React/Vite)  │
-└────────┬────────┘
-         │ HTTP/REST
-┌────────▼────────┐
-│    Backend      │  Flask API (Port 5000)
-│   (Flask)       │
-└────────┬────────┘
-         │
-┌────────▼────────┐
-│   MySQL DB      │  Data Discovery Catalog (Port 3306)
-└─────────────────┘
-         ▲
-         │
-┌────────┴────────┐
-│    Airflow      │  Discovery DAG (Port 8080)
-│  (Scheduler)    │  Scans Azure Blob Storage
-└─────────────────┘
-```
-
-### Component Flow
-
-1. **Airflow DAG** (`azure_blob_discovery_dag.py`) runs every 5 minutes
-2. Scans configured Azure Blob Storage containers and folders
-3. Extracts file metadata and schema information (without downloading full files)
-4. Compares with existing records in the database
-5. Inserts new discoveries or updates changed files
-6. Sends email notifications for new discoveries
-7. **Backend API** serves discovery data to the frontend
-8. **Frontend** displays discoveries with filtering, search, and approval workflows
-
-## Features
-
-### Discovery Engine
-- ✅ Automatic scanning of Azure Blob Storage containers
-- ✅ Support for multiple storage accounts and containers
-- ✅ Folder-level scanning configuration
-- ✅ File extension filtering
-- ✅ Schema extraction for CSV, JSON, and Parquet files
-- ✅ Change detection using file hashes (ETag-based) and schema hashes
-- ✅ Batch processing to handle large numbers of files
-- ✅ Retry logic with exponential backoff for database operations
-
-### Data Catalog
-- ✅ Comprehensive metadata storage (file info, schemas, storage details)
-- ✅ Full-text search across file names and paths
-- ✅ Filtering by status, environment, data source type
-- ✅ Pagination for large result sets
-- ✅ Deduplication to prevent duplicate entries
-
-### Web Interface
-- ✅ Modern React UI with Material-UI components
-- ✅ Real-time statistics dashboard
-- ✅ Discovery table with sorting and filtering
-- ✅ Detailed view for each discovery
-- ✅ Approval/rejection workflow
-- ✅ Manual discovery trigger
-- ✅ Auto-refresh every 30 seconds
-
-### Notifications
-- ✅ Email notifications for new discoveries
-- ✅ Configurable recipient lists
-- ✅ SMTP integration
+# Torro Data Discovery Platform - Setup Guide
 
 ## Prerequisites
 
-- **Python 3.9+** (for backend and Airflow)
-- **Node.js 18+** and **npm** (for frontend development)
-- **MySQL 8.0+**
-- **Azure Storage Account** with connection string
-- **SMTP server** credentials (for email notifications)
+- Python 3.9+ 
+- Node.js 18+ and npm
+- MySQL 8.0+
+- Nginx (for reverse proxy)
+- Azure Storage Account (for data discovery)
+- Azure AI Language Service (optional, for PII detection)
 
-## Quick Start
+## Quick Setup
 
-### Local Development Setup
+### 1. Clone Repository
 
-1. **Set up MySQL database**
-   ```bash
-   mysql -u root -p
-   CREATE DATABASE torro_discovery;
-   source database/migrations/data_discovery.sql
-   ```
-
-2. **Set up Python virtual environment (Airflow)**
-   ```bash
-   cd airflow
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   pip install -r requirements.txt
-   ```
-
-3. **Set up Python virtual environment (Backend)**
-   ```bash
-   cd backend
-   python -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
-   ```
-
-4. **Set up Frontend**
-   ```bash
-   cd frontend
-   npm install
-   ```
-
-5. **Run services**
-   - **Backend**: `cd backend && python -m app.main`
-   - **Frontend**: `cd frontend && npm run dev`
-   - **Airflow**: Follow Airflow installation guide for local setup
-
-## Configuration
-
-### Azure Storage Configuration
-
-Configure storage accounts in `airflow/config/azure_config.py` or via environment variables:
-
-```python
-AZURE_STORAGE_ACCOUNTS = [
-    {
-        "name": "account1",
-        "connection_string": "...",
-        "containers": ["container1", "container2"],
-        "folders": ["folder/path1", "folder/path2"],  # Empty string "" = root
-        "environment": "prod",
-        "env_type": "production",
-        "data_source_type": "credit_card",
-        "file_extensions": None  # None = all files, or ["csv", "json", "parquet"]
-    }
-]
+```bash
+git clone https://github.com/Theepak90/torroairflowfinal.git
+cd torroairflowfinal
 ```
 
-### Airflow DAG Schedule
+### 2. MySQL Database Setup
 
-The discovery DAG runs every 5 minutes by default. To change:
-- Edit `schedule_interval` in `airflow/dags/azure_blob_discovery_dag.py`
-- Use cron syntax: `'*/5 * * * *'` (every 5 minutes)
+```bash
+# Login to MySQL
+mysql -u root -p
 
-### Database Connection Pool
+# Create databases
+CREATE DATABASE torro_discovery;
+CREATE DATABASE airflow_metadata;
 
-Configure in `backend/app/config.py`:
-- `DB_POOL_MIN`: Minimum connections (default: 5)
-- `DB_POOL_MAX`: Maximum connections (default: 20)
-- `DB_POOL_RECYCLE`: Connection recycle time in seconds (default: 3600)
+# Create user
+CREATE USER 'torro_user'@'localhost' IDENTIFIED BY 'YOUR_PASSWORD';
+GRANT ALL PRIVILEGES ON torro_discovery.* TO 'torro_user'@'localhost';
+GRANT ALL PRIVILEGES ON airflow_metadata.* TO 'torro_user'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
+
+# Import schema
+mysql -u torro_user -p torro_discovery < database/migrations/data_discovery.sql
+```
+
+### 3. Backend Setup
+
+```bash
+cd backend
+
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure environment
+cp .env.template .env
+# Edit .env with your MySQL password and other settings
+
+# Run backend
+python3 -m app.main
+```
+
+Backend runs on `http://127.0.0.1:5000`
+
+### 4. Frontend Setup
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Run frontend
+npm run dev
+```
+
+Frontend runs on `http://127.0.0.1:3000`
+
+### 5. Airflow Setup
+
+```bash
+cd airflow
+
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure environment
+cp .env.template .env
+# Edit .env with your Azure credentials, MySQL password, SMTP settings
+
+# Initialize Airflow database
+export AIRFLOW_HOME=$(pwd)
+airflow db init
+
+# Create admin user
+airflow users create \
+    --username admin \
+    --firstname Admin \
+    --lastname User \
+    --role Admin \
+    --email admin@example.com \
+    --password admin
+
+# Start Airflow webserver (in one terminal)
+airflow webserver --port 8080
+
+# Start Airflow scheduler (in another terminal)
+airflow scheduler
+```
+
+Airflow runs on `http://127.0.0.1:8080`
+
+### 6. Nginx Reverse Proxy Setup
+
+```bash
+# Copy nginx config
+sudo cp nginx/torro-reverse-proxy.conf /opt/homebrew/etc/nginx/servers/
+
+# Or for Linux:
+# sudo cp nginx/torro-reverse-proxy.conf /etc/nginx/sites-available/
+# sudo ln -s /etc/nginx/sites-available/torro-reverse-proxy.conf /etc/nginx/sites-enabled/
+
+# Update SSL certificate paths in nginx/torro-reverse-proxy.conf if needed
+# Generate SSL certificates if you don't have them:
+# openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+#   -keyout nginx/ssl/key.pem \
+#   -out nginx/ssl/cert.pem
+
+# Test nginx configuration
+sudo nginx -t
+
+# Restart nginx
+sudo brew services restart nginx  # macOS
+# sudo systemctl restart nginx     # Linux
+```
+
+Access via:
+- Frontend: `https://127.0.0.1/`
+- Backend API: `https://127.0.0.1/api/discovery/stats`
+- Airflow: `https://127.0.0.1/airflow/`
+
+## Environment Variables
+
+### Backend (.env)
+
+```bash
+MYSQL_HOST=localhost
+MYSQL_PORT=3306
+MYSQL_USER=torro_user
+MYSQL_PASSWORD=YOUR_MYSQL_PASSWORD
+MYSQL_DATABASE=torro_discovery
+CORS_ORIGINS=http://localhost:3000,https://your-domain.com
+SECRET_KEY=your-secret-key-here
+```
+
+### Airflow (.env)
+
+```bash
+# MySQL
+MYSQL_HOST=localhost
+MYSQL_PORT=3306
+MYSQL_USER=torro_user
+MYSQL_PASSWORD=YOUR_MYSQL_PASSWORD
+MYSQL_DATABASE=airflow_metadata
+
+# Azure Storage
+AZURE_STORAGE_ACCOUNT_NAME=your_storage_account_name
+AZURE_STORAGE_CONNECTION_STRING=your_azure_connection_string
+AZURE_CONTAINERS=container1,container2
+
+# Azure AI Language (for PII detection)
+AZURE_AI_LANGUAGE_ENDPOINT=https://your-language-resource.cognitiveservices.azure.com/
+AZURE_AI_LANGUAGE_KEY=your_ai_language_key
+
+# Email
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your_email@gmail.com
+SMTP_PASSWORD=your_email_password
+EMAIL_RECIPIENTS=recipient1@example.com,recipient2@example.com
+FRONTEND_URL=https://your-domain.com
+```
+
+## Running Services
+
+### Start All Services
+
+**Terminal 1 - Backend:**
+```bash
+cd backend
+source venv/bin/activate
+python3 -m app.main
+```
+
+**Terminal 2 - Frontend:**
+```bash
+cd frontend
+npm run dev
+```
+
+**Terminal 3 - Airflow Webserver:**
+```bash
+cd airflow
+source venv/bin/activate
+export AIRFLOW_HOME=$(pwd)
+airflow webserver --port 8080
+```
+
+**Terminal 4 - Airflow Scheduler:**
+```bash
+cd airflow
+source venv/bin/activate
+export AIRFLOW_HOME=$(pwd)
+airflow scheduler
+```
+
+**Terminal 5 - Nginx:**
+```bash
+sudo nginx  # or sudo systemctl start nginx
+```
+
+## Testing
+
+### Test Backend Directly
+```bash
+curl http://127.0.0.1:5000/health
+curl http://127.0.0.1:5000/api/discovery/stats
+```
+
+### Test Through Nginx
+```bash
+curl -k https://127.0.0.1/health
+curl -k https://127.0.0.1/api/discovery/stats
+curl -k https://127.0.0.1/
+```
 
 ## Project Structure
 
 ```
-torroupdatedairflow/
-├── airflow/                    # Airflow DAGs and utilities
-│   ├── dags/
-│   │   └── azure_blob_discovery_dag.py  # Main discovery DAG
-│   ├── config/
-│   │   └── azure_config.py      # Azure storage configuration
-│   ├── utils/
-│   │   ├── azure_blob_client.py # Azure Blob Storage client
-│   │   ├── metadata_extractor.py # File metadata extraction
-│   │   ├── deduplication.py     # Deduplication logic
-│   │   ├── email_notifier.py   # Email notification
-│   │   └── azure_dlp_client.py # Azure DLP integration (optional)
-│   ├── requirements.txt
-│   └── .env.example
-│
-├── backend/                     # Flask REST API
+torroairflowfinal/
+├── backend/              # Flask REST API
 │   ├── app/
-│   │   ├── api/
-│   │   │   ├── routes/
-│   │   │   │   └── discovery.py # API endpoints
-│   │   │   └── schemas/
-│   │   │       └── discovery.py # Pydantic schemas
-│   │   ├── models/
-│   │   │   └── discovery.py     # Database models
-│   │   ├── services/
-│   │   │   └── discovery_service.py # Business logic
-│   │   ├── config.py            # Configuration
-│   │   ├── database.py          # Database connection pool
-│   │   └── main.py              # Flask app entry point
-│   ├── requirements.txt
-│   └── .env.example
-│
-├── frontend/                    # React frontend
+│   ├── .env.template
+│   └── requirements.txt
+├── frontend/            # React frontend
 │   ├── src/
-│   │   ├── components/          # React components
-│   │   │   ├── DiscoveryTable.jsx
-│   │   │   ├── DiscoveryFilters.jsx
-│   │   │   ├── SummaryCards.jsx
-│   │   │   └── DiscoveryDetailsDialog.jsx
-│   │   ├── pages/
-│   │   │   └── DataDiscoveryPage.jsx
-│   │   ├── services/
-│   │   │   └── api.js           # API client
-│   │   └── main.jsx
-│   ├── package.json
-│   └── vite.config.js
-│
-├── database/
+│   └── package.json
+├── airflow/            # Airflow DAGs and utilities
+│   ├── dags/
+│   ├── utils/
+│   ├── config/
+│   ├── .env.template
+│   └── requirements.txt
+├── nginx/              # Nginx reverse proxy config
+│   ├── torro-reverse-proxy.conf
+│   └── ssl/
+├── database/           # Database migrations
 │   └── migrations/
-│       └── data_discovery.sql  # Database schema
-│
 └── README.md
 ```
 
-## Components
-
-### Airflow DAG (`azure_blob_discovery_dag.py`)
-
-The main discovery workflow:
-
-1. **`discover_azure_blobs`** task:
-   - Scans all configured Azure storage accounts
-   - Lists blobs in specified containers and folders
-   - Extracts metadata (file size, ETag, timestamps)
-   - Gets file samples (1KB for CSV/JSON, 8KB tail for Parquet)
-   - Extracts schema information
-   - Generates file hash (ETag-based) and schema hash
-   - Checks for existing records in database
-   - Inserts new discoveries or updates changed files
-   - Processes files in batches of 100
-
-2. **`notify_data_governors`** task:
-   - Sends email notifications for new discoveries
-   - Includes summary of new files
-
-**Key Features:**
-- Retry logic with exponential backoff for database operations
-- Batch processing to handle large file counts
-- Schema change detection
-- No full file downloads (compliance-friendly)
-
-### Backend API (Flask)
-
-RESTful API endpoints:
-
-- `GET /api/discovery` - List discoveries with filtering and pagination
-- `GET /api/discovery/<id>` - Get discovery details
-- `PUT /api/discovery/<id>/approve` - Approve a discovery
-- `PUT /api/discovery/<id>/reject` - Reject a discovery
-- `GET /api/discovery/stats` - Get summary statistics
-- `POST /api/discovery/trigger` - Manually trigger discovery scan
-- `GET /health` - Health check
-
-**Features:**
-- Connection pooling for MySQL
-- Input validation with Pydantic schemas
-- CORS support
-- Error handling and logging
-
-### Frontend (React)
-
-Modern web interface built with:
-- **React 19** with hooks
-- **Material-UI (MUI)** for components
-- **Vite** for build tooling
-- **React Router** for navigation
-
-**Features:**
-- Real-time statistics dashboard
-- Searchable and filterable discovery table
-- Pagination
-- Approval/rejection workflow
-- Auto-refresh every 30 seconds
-- Manual discovery trigger
-- Detailed discovery view dialog
-
-## API Documentation
-
-### Get Discoveries
-
-```http
-GET /api/discovery?page=0&size=50&status=pending&environment=prod&data_source_type=credit_card&search=file.csv
-```
-
-**Query Parameters:**
-- `page` (int): Page number (0-indexed)
-- `size` (int): Page size (1-100, default: 50)
-- `status` (string, optional): Filter by status (`pending`, `approved`, `rejected`, `published`, `archived`)
-- `environment` (string, optional): Filter by environment
-- `data_source_type` (string, optional): Filter by data source type
-- `search` (string, optional): Full-text search in file names and paths
-
-**Response:**
-```json
-{
-  "discoveries": [
-    {
-      "id": 1,
-      "file_name": "data.csv",
-      "storage_path": "folder/data.csv",
-      "file_size_bytes": 1024,
-      "status": "pending",
-      "environment": "prod",
-      "discovered_at": "2024-01-01T00:00:00Z",
-      ...
-    }
-  ],
-  "pagination": {
-    "page": 0,
-    "size": 50,
-    "total": 100,
-    "total_pages": 2
-  }
-}
-```
-
-### Get Discovery Details
-
-```http
-GET /api/discovery/1
-```
-
-**Response:**
-```json
-{
-  "id": 1,
-  "storage_location": {...},
-  "file_metadata": {...},
-  "schema_json": {...},
-  "storage_metadata": {...},
-  ...
-}
-```
-
-### Approve Discovery
-
-```http
-PUT /api/discovery/1/approve
-Content-Type: application/json
-
-{
-  "approved_by": "user@example.com",
-  "role": "data_governor",
-  "comments": "Approved for production use"
-}
-```
-
-### Reject Discovery
-
-```http
-PUT /api/discovery/1/reject
-Content-Type: application/json
-
-{
-  "rejected_by": "user@example.com",
-  "rejection_reason": "Contains sensitive data",
-  "role": "data_governor",
-  "comments": "Needs encryption"
-}
-```
-
-### Get Statistics
-
-```http
-GET /api/discovery/stats
-```
-
-**Response:**
-```json
-{
-  "total": 1000,
-  "pending": 50,
-  "approved": 800,
-  "rejected": 100,
-  "by_environment": {
-    "prod": 600,
-    "dev": 400
-  },
-  "by_data_source": {
-    "credit_card": 300,
-    "pii": 200
-  }
-}
-```
-
-### Trigger Discovery
-
-```http
-POST /api/discovery/trigger
-```
-
-**Response:**
-```json
-{
-  "message": "Discovery triggered successfully",
-  "status": "running"
-}
-```
-
-## Database Schema
-
-The `data_discovery` table stores all discovered files with comprehensive metadata:
-
-**Key Columns:**
-- `id`: Primary key
-- `storage_location`: JSON with storage path and connection info
-- `file_metadata`: JSON with file name, size, hash, timestamps
-- `schema_json`: JSON with extracted schema (columns, types)
-- `schema_hash`: Hash of schema for change detection
-- `status`: `pending`, `approved`, `rejected`, `published`, `archived`
-- `approval_status`: `pending_review`, `approved`, `rejected`
-- `environment`, `env_type`, `data_source_type`: Classification fields
-- `discovered_at`, `last_checked_at`: Timestamps
-- `discovery_info`: JSON with batch and source information
-
-**Indexes:**
-- Composite index on `storage_type`, `storage_identifier`, `storage_path` for deduplication
-- Indexes on `status`, `environment`, `discovered_at` for filtering
-- Full-text index on `file_name`, `folder_path` for search
-
-See `database/migrations/data_discovery.sql` for the complete schema.
-
-## Development
-
-### Running Tests
-
-```bash
-# Backend tests (when available)
-cd backend
-pytest
-
-# Frontend tests (when available)
-cd frontend
-npm test
-```
-
-### Code Style
-
-- **Python**: Follow PEP 8, use type hints
-- **JavaScript**: ESLint configuration included
-- **SQL**: Use consistent naming conventions
-
-### Adding New Storage Types
-
-1. Create a new client in `airflow/utils/` (e.g., `s3_client.py`)
-2. Update `azure_config.py` to support new storage type
-3. Modify `azure_blob_discovery_dag.py` to handle new type
-4. Update database schema if needed
-
-### Adding New File Formats
-
-1. Extend `metadata_extractor.py` to support new format
-2. Add schema extraction logic
-3. Update file sample retrieval in blob client
-
-### Health Checks
-
-- **Backend**: `GET http://localhost:5000/health`
-- **Frontend**: Check if port 3000 is accessible
-- **Airflow**: `GET http://localhost:8080/health`
-- **MySQL**: `mysqladmin ping -h localhost`
-
 ## Troubleshooting
 
-### Airflow DAG Not Running
+### Backend won't start
+- Check MySQL is running: `mysql -u root -p`
+- Verify `.env` file exists and has correct MySQL credentials
+- Check port 5000 is not in use: `lsof -i :5000`
 
-1. Check if DAG is unpaused in Airflow UI
-2. Verify DAG schedule interval
-3. Check Airflow scheduler logs
-4. Verify Azure connection string is set correctly
+### Frontend won't start
+- Check Node.js version: `node --version` (needs 18+)
+- Delete `node_modules` and reinstall: `rm -rf node_modules && npm install`
+- Check port 3000 is not in use: `lsof -i :3000`
 
-### Database Connection Errors
+### Airflow won't start
+- Verify `.env` file exists in airflow directory
+- Check Airflow database is initialized: `airflow db check`
+- Check port 8080 is not in use: `lsof -i :8080`
 
-1. Check MySQL is running: `mysqladmin ping -h localhost`
-2. Verify connection credentials in `.env` files
-3. Check connection pool settings
-4. Review MySQL logs
+### Nginx errors
+- Test configuration: `sudo nginx -t`
+- Check error logs: `tail -f /opt/homebrew/var/log/nginx/error.log`
+- Verify SSL certificates exist: `ls -la nginx/ssl/`
 
-### No Discoveries Found
+### MySQL connection errors
+- Verify user exists: `mysql -u torro_user -p`
+- Check database exists: `mysql -u root -p -e "SHOW DATABASES;"`
+- Grant permissions: `GRANT ALL PRIVILEGES ON torro_discovery.* TO 'torro_user'@'localhost';`
 
-1. Verify Azure storage connection string
-2. Check container names and folder paths in configuration
-3. Ensure files exist in specified locations
-4. Check Airflow task logs for errors
-5. Verify file extension filters (if set)
+## Production Deployment
 
-### Frontend Not Loading
-
-1. Check backend API is accessible: `curl http://localhost:5000/health`
-2. Verify CORS configuration in backend
-3. Check browser console for errors
-4. Verify `VITE_API_BASE_URL` in frontend environment
-
-### Email Notifications Not Sending
-
-1. Verify SMTP credentials in `airflow/.env`
-2. Check SMTP server allows connections
-3. Review email notifier logs
-4. Test SMTP connection manually
-
-### Performance Issues
-
-1. **Large file counts:**
-   - Adjust batch size in DAG (default: 100)
-   - Increase database connection pool size
-   - Consider partitioning by date
-
-2. **Slow queries:**
-   - Check database indexes are being used
-   - Review query execution plans
-   - Consider adding composite indexes
-
-3. **Memory issues:**
-   - Reduce batch size
-   - Limit concurrent DAG runs (`max_active_runs=1`)
-   - Increase container memory limits
-
-## License
-
-[Add your license information here]
-
-## Contributing
-
-[Add contribution guidelines here]
+1. Update `.env` files with production values
+2. Use production SSL certificates in `nginx/ssl/`
+3. Update `server_name` in nginx config to your domain
+4. Set `DEBUG=False` in backend config
+5. Use production MySQL credentials
+6. Configure firewall to allow ports 80, 443
+7. Set up process managers (systemd, PM2, etc.) for services
 
 ## Support
 
-For issues and questions, please [create an issue](link-to-issues) or contact the development team.
+For issues, create an issue on GitHub: https://github.com/Theepak90/torroairflowfinal/issues
