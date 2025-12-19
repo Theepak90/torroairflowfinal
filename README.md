@@ -15,7 +15,6 @@ A comprehensive data discovery and governance platform that automatically scans 
 - [API Documentation](#api-documentation)
 - [Database Schema](#database-schema)
 - [Development](#development)
-- [Docker Deployment](#docker-deployment)
 - [Troubleshooting](#troubleshooting)
 
 ## Overview
@@ -101,94 +100,13 @@ The platform consists of three main components:
 
 ## Prerequisites
 
-- **Docker** and **Docker Compose** (for containerized deployment)
-- **Python 3.9+** (for local development)
+- **Python 3.9+** (for backend and Airflow)
 - **Node.js 18+** and **npm** (for frontend development)
-- **MySQL 8.0+** (or use Docker)
+- **MySQL 8.0+**
 - **Azure Storage Account** with connection string
 - **SMTP server** credentials (for email notifications)
 
 ## Quick Start
-
-### Using Docker Compose (Recommended)
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd torroupdatedairflow
-   ```
-
-2. **Set up environment variables**
-   
-   Create `.env` files in the `airflow/` and `backend/` directories based on the `.env.example` files:
-   
-   **`airflow/.env`**:
-   ```env
-   # Azure Storage Configuration
-   AZURE_STORAGE_ACCOUNT_NAME=your_account_name
-   AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=...
-   AZURE_CONTAINERS=container1,container2
-   AZURE_FOLDERS=folder/credit_card,folder/pii
-   AZURE_ENVIRONMENT=prod
-   AZURE_ENV_TYPE=production
-   AZURE_DATA_SOURCE_TYPE=credit_card
-   
-   # Database Configuration
-   MYSQL_HOST=mysql
-   MYSQL_PORT=3306
-   MYSQL_USER=torro_user
-   MYSQL_PASSWORD=torro_password
-   MYSQL_DATABASE=torro_discovery
-   
-   # Email Notifications
-   NOTIFICATION_EMAILS=admin@example.com,governor@example.com
-   SMTP_SERVER=smtp.gmail.com
-   SMTP_PORT=587
-   SMTP_USER=your_email@gmail.com
-   SMTP_PASSWORD=your_app_password
-   
-   # Azure AI Language (DLP) - Optional
-   AZURE_AI_LANGUAGE_ENDPOINT=https://your-resource.cognitiveservices.azure.com/
-   AZURE_AI_LANGUAGE_KEY=your_key
-   ```
-   
-   **`backend/.env`**:
-   ```env
-   MYSQL_HOST=mysql
-   MYSQL_PORT=3306
-   MYSQL_USER=torro_user
-   MYSQL_PASSWORD=torro_password
-   MYSQL_DATABASE=torro_discovery
-   SECRET_KEY=your-secret-key-here
-   CORS_ORIGINS=http://localhost:3000
-   ```
-
-3. **Start all services**
-   ```bash
-   cd docker
-   docker-compose up -d
-   ```
-
-4. **Initialize Airflow database** (first time only)
-   ```bash
-   docker exec -it torro_airflow_webserver airflow db init
-   docker exec -it torro_airflow_webserver airflow users create \
-     --username airflow \
-     --firstname Admin \
-     --lastname User \
-     --role Admin \
-     --email admin@example.com \
-     --password airflow
-   ```
-
-5. **Access the services**
-   - **Frontend**: http://localhost:3000
-   - **Backend API**: http://localhost:5000
-   - **Airflow UI**: http://localhost:8080 (username: `airflow`, password: `airflow`)
-
-6. **Unpause the DAG**
-   - Go to Airflow UI → DAGs → `azure_blob_discovery`
-   - Click the play button to unpause the DAG
 
 ### Local Development Setup
 
@@ -313,13 +231,6 @@ torroupdatedairflow/
 ├── database/
 │   └── migrations/
 │       └── data_discovery.sql  # Database schema
-│
-├── docker/
-│   ├── docker-compose.yml       # Production compose file
-│   ├── docker-compose.dev.yml   # Development compose file
-│   ├── Dockerfile.airflow
-│   ├── Dockerfile.backend
-│   └── Dockerfile.frontend
 │
 └── README.md
 ```
@@ -565,30 +476,6 @@ npm test
 2. Add schema extraction logic
 3. Update file sample retrieval in blob client
 
-## Docker Deployment
-
-### Production Deployment
-
-1. **Build images:**
-   ```bash
-   docker-compose -f docker/docker-compose.yml build
-   ```
-
-2. **Set production environment variables:**
-   - Use secrets management (Docker secrets, Kubernetes secrets, etc.)
-   - Set strong passwords and keys
-   - Configure production SMTP server
-
-3. **Deploy:**
-   ```bash
-   docker-compose -f docker/docker-compose.yml up -d
-   ```
-
-4. **Monitor logs:**
-   ```bash
-   docker-compose -f docker/docker-compose.yml logs -f
-   ```
-
 ### Health Checks
 
 - **Backend**: `GET http://localhost:5000/health`
@@ -602,15 +489,15 @@ npm test
 
 1. Check if DAG is unpaused in Airflow UI
 2. Verify DAG schedule interval
-3. Check Airflow scheduler logs: `docker logs torro_airflow_scheduler`
+3. Check Airflow scheduler logs
 4. Verify Azure connection string is set correctly
 
 ### Database Connection Errors
 
-1. Check MySQL is running: `docker ps | grep mysql`
+1. Check MySQL is running: `mysqladmin ping -h localhost`
 2. Verify connection credentials in `.env` files
 3. Check connection pool settings
-4. Review database logs: `docker logs torro_mysql`
+4. Review MySQL logs
 
 ### No Discoveries Found
 

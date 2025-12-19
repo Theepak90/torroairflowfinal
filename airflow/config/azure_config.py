@@ -21,7 +21,7 @@ DISCOVERY_CONFIG = {
     "schedule_interval": "*/1 * * * *",
     "notification_recipients": [email.strip() for email in os.getenv("NOTIFICATION_EMAILS", "").split(",") if email.strip()],
     "smtp_server": os.getenv("SMTP_SERVER", "smtp.gmail.com"),
-    "smtp_port": int(os.getenv("SMTP_PORT", "587")),
+    "smtp_port": int(os.getenv("SMTP_PORT") or "587"),
     "smtp_user": os.getenv("SMTP_USER", ""),
     "smtp_password": os.getenv("SMTP_PASSWORD", ""),
 }

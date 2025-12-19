@@ -160,10 +160,14 @@ def trigger_discovery():
         import threading
         
         # Get the project root directory (parent of backend)
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        # File is at: backend/app/api/routes/discovery.py
+        # Need to go: routes -> api -> app -> backend -> project_root
+        current_file = os.path.abspath(__file__)
+        backend_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+        project_root = os.path.dirname(backend_path)
         airflow_path = os.path.join(project_root, 'airflow')
         
-        # Add airflow to path
+        # Add airflow to path (must be first for imports to work)
         if airflow_path not in sys.path:
             sys.path.insert(0, airflow_path)
         
@@ -171,10 +175,12 @@ def trigger_discovery():
         from dotenv import load_dotenv
         load_dotenv(os.path.join(airflow_path, '.env'))
         
-        from config.azure_config import AZURE_STORAGE_ACCOUNTS, DB_CONFIG, get_storage_location_json
-        from utils.azure_blob_client import AzureBlobClient
-        from utils.metadata_extractor import extract_file_metadata, generate_file_hash, generate_schema_hash
-        from utils.deduplication import check_file_exists, should_update_or_insert
+        # Dynamic imports from airflow directory (added to sys.path above)
+        # These imports are resolved at runtime after adding airflow_path to sys.path
+        from config.azure_config import AZURE_STORAGE_ACCOUNTS, DB_CONFIG, get_storage_location_json  # type: ignore
+        from utils.azure_blob_client import AzureBlobClient  # type: ignore
+        from utils.metadata_extractor import extract_file_metadata, generate_file_hash, generate_schema_hash  # type: ignore
+        from utils.deduplication import check_file_exists, should_update_or_insert  # type: ignore
         import pymysql
         import json
         from datetime import datetime
@@ -201,6 +207,12 @@ def trigger_discovery():
                     
                     try:
                         blob_client = AzureBlobClient(connection_string)
+                        
+                        # If containers list is empty, scan all containers
+                        if not containers or len(containers) == 0:
+                            logger.info('FN:trigger_discovery containers_empty_scanning_all')
+                            containers = blob_client.list_containers()
+                            logger.info('FN:trigger_discovery found_containers:{}'.format(len(containers)))
                         
                         for container_name in containers:
                             for folder_path in folders:
@@ -253,7 +265,8 @@ def trigger_discovery():
                                                 if file_extension == "parquet":
                                                     file_sample = blob_client.get_blob_tail(container_name, blob_path, max_bytes=8192)
                                                 else:
-                                                    file_sample = blob_client.get_blob_sample(container_name, blob_path, max_bytes=1024)
+                                                    # CSV/JSON: Get headers + 1-2 sample rows for reference (banking compliance)
+                                                    file_sample = blob_client.get_blob_sample(container_name, blob_path, max_bytes=2048)
                                             except Exception:
                                                 pass
                                             

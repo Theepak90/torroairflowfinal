@@ -152,6 +152,7 @@ def get_dlp_client() -> Optional[AzureDLPClient]:
 def detect_pii_in_column(column_name: str) -> Dict:
     """
     Convenience function to detect PII in a column name using Azure DLP
+    Falls back to pattern matching if Azure DLP is not available
     
     Args:
         column_name: Column name to analyze
@@ -159,10 +160,70 @@ def detect_pii_in_column(column_name: str) -> Dict:
     Returns:
         Dict with pii_detected (bool) and pii_types (list)
     """
+    # Try Azure DLP first
     client = get_dlp_client()
-    if not client:
-        return {
-            "pii_detected": False,
-            "pii_types": []
-        }
-    return client.detect_pii_in_column_name(column_name)
+    if client and client.client:  # Azure DLP is configured and available
+        try:
+            result = client.detect_pii_in_column_name(column_name)
+            if result.get("pii_detected"):
+                logger.info('FN:detect_pii_in_column column_name:{} azure_dlp_detected:True'.format(column_name))
+                return result
+            # If Azure DLP returns no PII, fall through to pattern matching
+        except Exception as e:
+            logger.warning('FN:detect_pii_in_column azure_dlp_error:{} falling_back_to_pattern'.format(str(e)))
+            # Fall through to pattern matching on error
+    
+    # Fallback: Pattern matching for common PII column names
+    if not column_name:
+        return {"pii_detected": False, "pii_types": []}
+    
+    column_lower = column_name.lower().strip()
+    pii_types = []
+    
+    # Pattern matching for common PII column names
+    pii_patterns = {
+        "email": ["Email"],
+        "e-mail": ["Email"],
+        "mail": ["Email"],
+        "phone": ["PhoneNumber"],
+        "telephone": ["PhoneNumber"],
+        "mobile": ["PhoneNumber"],
+        "cell": ["PhoneNumber"],
+        "ssn": ["SSN"],
+        "social": ["SSN"],
+        "social_security": ["SSN"],
+        "credit_card": ["CreditCardNumber"],
+        "creditcard": ["CreditCardNumber"],
+        "card_number": ["CreditCardNumber"],
+        "cardnumber": ["CreditCardNumber"],
+        "cc": ["CreditCardNumber"],
+        "passport": ["PassportNumber"],
+        "passport_number": ["PassportNumber"],
+        "driver": ["DriverLicense"],
+        "license": ["DriverLicense"],
+        "dl": ["DriverLicense"],
+        "bank_account": ["BankAccount"],
+        "account_number": ["BankAccount"],
+        "accountnumber": ["BankAccount"],
+        "address": ["Address"],
+        "street": ["Address"],
+        "city": ["Address"],
+        "zip": ["Address"],
+        "postal": ["Address"],
+    }
+    
+    # Check for exact matches or partial matches
+    for pattern, types in pii_patterns.items():
+        if pattern in column_lower:
+            pii_types.extend(types)
+    
+    # Remove duplicates
+    pii_types = list(set(pii_types))
+    
+    if pii_types:
+        logger.info('FN:detect_pii_in_column column_name:{} pattern_matching_detected:True types:{}'.format(column_name, pii_types))
+    
+    return {
+        "pii_detected": len(pii_types) > 0,
+        "pii_types": pii_types
+    }

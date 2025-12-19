@@ -4,12 +4,12 @@
 import { API_BASE_URL } from '../utils/constants';
 
 const API_ENDPOINTS = {
-  DISCOVERIES: `${API_BASE_URL}/api/discovery`,
-  DISCOVERY_BY_ID: (id) => `${API_BASE_URL}/api/discovery/${id}`,
-  APPROVE: (id) => `${API_BASE_URL}/api/discovery/${id}/approve`,
-  REJECT: (id) => `${API_BASE_URL}/api/discovery/${id}/reject`,
-  STATS: `${API_BASE_URL}/api/discovery/stats`,
-  TRIGGER_DISCOVERY: `${API_BASE_URL}/api/discovery/trigger`,
+  DISCOVERIES: `${API_BASE_URL}/discovery`,
+  DISCOVERY_BY_ID: (id) => `${API_BASE_URL}/discovery/${id}`,
+  APPROVE: (id) => `${API_BASE_URL}/discovery/${id}/approve`,
+  REJECT: (id) => `${API_BASE_URL}/discovery/${id}/reject`,
+  STATS: `${API_BASE_URL}/discovery/stats`,
+  TRIGGER_DISCOVERY: `${API_BASE_URL}/discovery/trigger`,
 };
 
 /**

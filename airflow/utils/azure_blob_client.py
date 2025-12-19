@@ -10,6 +10,19 @@ class AzureBlobClient:
         self.connection_string = connection_string
         self.blob_service_client = BlobServiceClient.from_connection_string(connection_string)
     
+    def list_containers(self) -> List[str]:
+        """List all container names in the storage account"""
+        try:
+            containers = []
+            container_list = self.blob_service_client.list_containers()
+            for container in container_list:
+                containers.append(container.name)
+            logger.info('FN:list_containers container_count:{}'.format(len(containers)))
+            return containers
+        except Exception as e:
+            logger.error('FN:list_containers error:{}'.format(str(e)))
+            raise
+    
     def list_blobs(self, container_name: str, folder_path: str = "", file_extensions: List[str] = None) -> List[Dict]:
         try:
             container_client = self.blob_service_client.get_container_client(container_name)
@@ -109,17 +122,17 @@ class AzureBlobClient:
             logger.error('FN:get_blob_content container_name:{} blob_path:{} error:{}'.format(container_name, blob_path, str(e)))
             raise
     
-    def get_blob_sample(self, container_name: str, blob_path: str, max_bytes: int = 1024) -> bytes:
-        # Get only headers/column names (first N bytes) - NO data rows
-        # For banking/financial compliance: We only extract column names, never actual data
-        # CSV: First line only (headers)
-        # JSON: First object keys only
+    def get_blob_sample(self, container_name: str, blob_path: str, max_bytes: int = 2048) -> bytes:
+        # Get headers + 1-2 sample rows for reference (banking compliance)
+        # CSV: First line (headers) + up to 2 data rows
+        # JSON: First object keys + 1-2 sample values
+        # Increased to 2KB to accommodate 1-2 sample rows
         try:
             blob_client = self.blob_service_client.get_blob_client(
                 container=container_name,
                 blob=blob_path
             )
-            # Download only first max_bytes (just enough for headers/keys - NO data)
+            # Download first max_bytes (headers + 1-2 sample rows for type inference)
             return blob_client.download_blob(offset=0, length=max_bytes).readall()
         except Exception as e:
             logger.warning('FN:get_blob_sample container_name:{} blob_path:{} max_bytes:{} error:{}'.format(container_name, blob_path, max_bytes, str(e)))

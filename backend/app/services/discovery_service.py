@@ -112,9 +112,11 @@ class DiscoveryService:
                     if not existing:
                         raise ValueError(f"Discovery {discovery_id} not found")
                     
-                    existing_approval_workflow = existing.get('approval_workflow', {})
+                    existing_approval_workflow = existing.get('approval_workflow') or {}
                     if isinstance(existing_approval_workflow, str):
                         existing_approval_workflow = json.loads(existing_approval_workflow)
+                    if not isinstance(existing_approval_workflow, dict):
+                        existing_approval_workflow = {}
                     
                     approval_obj = {
                         "by": approved_by,
@@ -123,7 +125,7 @@ class DiscoveryService:
                         "comments": comments
                     }
                     
-                    history = existing_approval_workflow.get('history', [])
+                    history = existing_approval_workflow.get('history', []) if isinstance(existing_approval_workflow, dict) else []
                     history.append({
                         "action": "approved",
                         **approval_obj
@@ -173,9 +175,11 @@ class DiscoveryService:
                     if not existing:
                         raise ValueError(f"Discovery {discovery_id} not found")
                     
-                    existing_approval_workflow = existing.get('approval_workflow', {})
+                    existing_approval_workflow = existing.get('approval_workflow') or {}
                     if isinstance(existing_approval_workflow, str):
                         existing_approval_workflow = json.loads(existing_approval_workflow)
+                    if not isinstance(existing_approval_workflow, dict):
+                        existing_approval_workflow = {}
                     
                     rejection_obj = {
                         "by": rejected_by,
@@ -185,7 +189,7 @@ class DiscoveryService:
                         "comments": comments
                     }
                     
-                    history = existing_approval_workflow.get('history', [])
+                    history = existing_approval_workflow.get('history', []) if isinstance(existing_approval_workflow, dict) else []
                     history.append({
                         "action": "rejected",
                         **rejection_obj

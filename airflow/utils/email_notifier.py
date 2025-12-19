@@ -85,6 +85,20 @@ def send_notification_email(discoveries: List[Dict], recipients: List[str]):
         smtp_port = DISCOVERY_CONFIG["smtp_port"]
         smtp_user = DISCOVERY_CONFIG["smtp_user"]
         smtp_password = DISCOVERY_CONFIG["smtp_password"]
+
+        # If SMTP creds are not configured, do not fail the DAG.
+        # We want discovery to succeed even if notifications are not set up yet.
+        if not smtp_user or not smtp_password:
+            logger.warning(
+                'FN:send_notification_email skipping_send smtp_configured:{} smtp_user_set:{} smtp_password_set:{} recipients_count:{} discoveries_count:{}'.format(
+                    bool(smtp_server and smtp_port),
+                    bool(smtp_user),
+                    bool(smtp_password),
+                    len(recipients),
+                    len(discoveries),
+                )
+            )
+            return
         
         msg = MIMEMultipart()
         msg['From'] = smtp_user
@@ -108,7 +122,8 @@ def send_notification_email(discoveries: List[Dict], recipients: List[str]):
                 </tr>
         """
         
-        frontend_url = "http://localhost:3000"
+        # Use environment variable or default to localhost
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
         
         for discovery in discoveries:
             discovery_id = discovery["id"]

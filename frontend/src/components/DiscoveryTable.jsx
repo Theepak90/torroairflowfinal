@@ -74,7 +74,6 @@ const DiscoveryTable = ({
               <TableRow>
                 <TableCell sx={{ fontWeight: 600 }}>File Name</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Storage Type</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Environment</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Data Source</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Size</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Discovered</TableCell>
@@ -100,12 +99,7 @@ const DiscoveryTable = ({
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" sx={{ fontFamily: 'Roboto' }}>
-                        {discovery.environment || 'N/A'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontFamily: 'Roboto' }}>
-                        {discovery.data_source_type || 'N/A'}
+                        azure
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -163,7 +157,7 @@ const DiscoveryTable = ({
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
+                  <TableCell colSpan={7} align="center">
                     <Typography variant="body2" color="text.secondary">
                       No discoveries found
                     </Typography>

@@ -74,87 +74,281 @@ const DiscoveryDetailsDialog = ({ open, discovery, loading, onClose }) => {
           </DialogTitle>
           <DialogContent dividers>
             <Tabs value={activeTab} onChange={handleTabChange} sx={{ mb: 3 }}>
-              <Tab label="Overview" />
-              <Tab label="Schema" />
-              <Tab label="Storage Metadata" />
+              <Tab label="Technical" />
+              <Tab label="Operational" />
+              <Tab label="Business" />
+              <Tab label="Schema & PII" />
             </Tabs>
 
-            {/* Overview Tab */}
+            {/* Technical Metadata Tab */}
             {activeTab === 0 && (
-              <Grid container spacing={2}>
-                <Grid item xs={6}>
+              <Box>
+                {(() => {
+                  const techMeta = discovery.storage_data_metadata?.technical_metadata || {};
+                  const fileSystem = techMeta.file_system || discovery.file_metadata?.basic || {};
+                  const hash = techMeta.hash || discovery.file_metadata?.hash || {};
+                  const timestamps = techMeta.timestamps || discovery.file_metadata?.timestamps || {};
+                  const storage = techMeta.storage || discovery.storage_metadata?.azure || {};
+                  const formatSpecific = techMeta.format_specific || {};
+                  
+                  const renderField = (label, value, isCode = false) => (
+                    <Grid item xs={6} key={label}>
                   <Card variant="outlined">
                     <CardContent>
-                      <Typography color="text.secondary" gutterBottom>File Name</Typography>
-                      <Typography variant="body1">{discovery.file_name || (discovery.file_metadata?.basic?.name) || 'N/A'}</Typography>
+                          <Typography color="text.secondary" gutterBottom sx={{ fontWeight: 500, fontSize: '0.875rem' }}>
+                            {label.toUpperCase()}
+                          </Typography>
+                          <Typography variant="body1" sx={{ wordBreak: 'break-word', fontFamily: isCode ? 'monospace' : 'inherit', fontSize: '0.875rem' }}>
+                            {value || 'N/A'}
+                          </Typography>
                     </CardContent>
                   </Card>
                 </Grid>
-                <Grid item xs={6}>
+                  );
+                  
+                  return (
+                    <Grid container spacing={2}>
+                      {renderField('File Name', fileSystem.name)}
+                      {renderField('Extension', fileSystem.extension)}
+                      {renderField('Format', fileSystem.format)}
+                      {renderField('Size', formatBytes(fileSystem.size_bytes))}
+                      {renderField('MIME Type', fileSystem.mime_type)}
+                      {renderField('Content Type', fileSystem.content_type)}
+                      {renderField('Hash Algorithm', hash.algorithm, true)}
+                      {renderField('Hash Value', hash.value, true)}
+                      {renderField('Hash Computed At', formatDate(hash.computed_at))}
+                      {renderField('Created At', formatDate(timestamps.created_at))}
+                      {renderField('Last Modified', formatDate(timestamps.last_modified))}
+                      {storage.type && renderField('Storage Type', storage.type)}
+                      {storage.etag && storage.etag !== 'N/A' && renderField('ETag', storage.etag, true)}
+                      {storage.access_tier && storage.access_tier !== 'N/A' && renderField('Access Tier', storage.access_tier)}
+                      {storage.lease_status && storage.lease_status !== 'N/A' && renderField('Lease Status', storage.lease_status)}
+                      {storage.content_encoding && storage.content_encoding !== 'N/A' && renderField('Content Encoding', storage.content_encoding)}
+                      {storage.content_language && storage.content_language !== 'N/A' && renderField('Content Language', storage.content_language)}
+                      {storage.cache_control && storage.cache_control !== 'N/A' && renderField('Cache Control', storage.cache_control)}
+                      
+                      {Object.keys(formatSpecific).length > 0 && (
+                        <>
+                          <Grid item xs={12} sx={{ mt: 2 }}>
+                            <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>Format Specific</Typography>
+                          </Grid>
+                          {Object.entries(formatSpecific).map(([key, value]) => (
+                            <Grid item xs={12} key={key}>
                   <Card variant="outlined">
                     <CardContent>
-                      <Typography color="text.secondary" gutterBottom>File Format</Typography>
-                      <Typography variant="body1">{discovery.file_metadata?.basic?.format || discovery.file_metadata?.basic?.extension || 'N/A'}</Typography>
+                                  <Typography color="text.secondary" gutterBottom sx={{ fontWeight: 500, fontSize: '0.875rem' }}>
+                                    {key.toUpperCase()}
+                                  </Typography>
+                                  <Typography variant="body1" sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
+                                    {JSON.stringify(value, null, 2)}
+                                  </Typography>
                     </CardContent>
                   </Card>
                 </Grid>
-                <Grid item xs={6}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Typography color="text.secondary" gutterBottom>File Size</Typography>
-                      <Typography variant="body1">{formatBytes(discovery.file_size_bytes)}</Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid item xs={6}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Typography color="text.secondary" gutterBottom>Environment</Typography>
-                      <Typography variant="body1">{discovery.environment || 'N/A'}</Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid item xs={6}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Typography color="text.secondary" gutterBottom>Data Source Type</Typography>
-                      <Typography variant="body1">{discovery.data_source_type || 'N/A'}</Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid item xs={6}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Typography color="text.secondary" gutterBottom>Discovered At</Typography>
-                      <Typography variant="body1">{formatDate(discovery.discovered_at)}</Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid item xs={12}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Typography color="text.secondary" gutterBottom>Storage Path</Typography>
-                      <Typography variant="body1" sx={{ wordBreak: 'break-all' }}>
-                        {discovery.storage_path || (discovery.storage_location?.path) || 'N/A'}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              </Grid>
+                          ))}
+                        </>
+                      )}
+                    </Grid>
+                  );
+                })()}
+              </Box>
             )}
 
-            {/* Schema Tab */}
+            {/* Operational Metadata Tab */}
             {activeTab === 1 && (
               <Box>
-                {discovery.schema_json && discovery.schema_json.columns && discovery.schema_json.columns.length > 0 ? (
+                {(() => {
+                  const opMeta = discovery.storage_data_metadata?.operational_metadata || {};
+                  const discoveryInfo = opMeta.discovery || {};
+                  const status = opMeta.status || {};
+                  const workflow = opMeta.workflow || {};
+                  
+                  const renderField = (label, value) => (
+                    <Grid item xs={6} key={label}>
+                  <Card variant="outlined">
+                    <CardContent>
+                          <Typography color="text.secondary" gutterBottom sx={{ fontWeight: 500, fontSize: '0.875rem' }}>
+                            {label.toUpperCase()}
+                          </Typography>
+                          <Typography variant="body1" sx={{ wordBreak: 'break-word', fontSize: '0.875rem' }}>
+                            {value || 'N/A'}
+                          </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                  );
+                  
+                  // Get actual values from discovery object
+                  const discoveredAt = discoveryInfo.discovered_at || discovery.discovered_at;
+                  const lastCheckedAt = discoveryInfo.last_checked_at || discovery.last_checked_at;
+                  const batchId = discoveryInfo.discovery_batch_id || discovery.discovery_info?.batch?.id || discovery.discovery_info?.batch_id;
+                  const schemaVersion = discoveryInfo.schema_version || discovery.schema_version || '1.0';
+                  const schemaHash = discoveryInfo.schema_hash || discovery.schema_hash;
+                  const currentStatus = status.current_status || discovery.status;
+                  const approvalStatus = status.approval_status || discovery.approval_status;
+                  const isVisible = status.is_visible !== undefined ? status.is_visible : discovery.is_visible;
+                  const isActive = status.is_active !== undefined ? status.is_active : discovery.is_active;
+                  const notificationSentAt = workflow.notification_sent_at || discovery.notification_sent_at;
+                  const notificationRecipients = workflow.notification_recipients || discovery.notification_recipients;
+                  
+                  return (
+                    <Grid container spacing={2}>
+                      {renderField('Discovered At', formatDate(discoveredAt))}
+                      {lastCheckedAt && renderField('Last Checked At', formatDate(lastCheckedAt))}
+                      {batchId && renderField('Discovery Batch ID', batchId)}
+                      {schemaVersion && renderField('Schema Version', schemaVersion)}
+                      {schemaHash && (
+                        <Grid item xs={12}>
+                  <Card variant="outlined">
+                    <CardContent>
+                              <Typography color="text.secondary" gutterBottom sx={{ fontWeight: 500, fontSize: '0.875rem' }}>
+                                SCHEMA HASH
+                              </Typography>
+                              <Typography variant="body1" sx={{ wordBreak: 'break-all', fontFamily: 'monospace', fontSize: '0.875rem' }}>
+                                {schemaHash}
+                              </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                      )}
+                      {currentStatus && renderField('Current Status', currentStatus)}
+                      {approvalStatus && renderField('Approval Status', approvalStatus)}
+                      {notificationSentAt && renderField('Notification Sent At', formatDate(notificationSentAt))}
+                      {notificationRecipients && Array.isArray(notificationRecipients) && notificationRecipients.length > 0 && renderField('Notification Recipients', notificationRecipients.join(', '))}
+                      {notificationRecipients && !Array.isArray(notificationRecipients) && renderField('Notification Recipients', typeof notificationRecipients === 'string' ? notificationRecipients : JSON.stringify(notificationRecipients))}
+                      {workflow.approval_workflow && (
+                        <Grid item xs={12}>
+                  <Card variant="outlined">
+                    <CardContent>
+                              <Typography color="text.secondary" gutterBottom sx={{ fontWeight: 500, fontSize: '0.875rem' }}>
+                                APPROVAL WORKFLOW
+                              </Typography>
+                              <Typography variant="body1" sx={{ fontFamily: 'monospace', fontSize: '0.875rem', whiteSpace: 'pre-wrap' }}>
+                                {JSON.stringify(workflow.approval_workflow || discovery.approval_workflow || {}, null, 2)}
+                              </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                      )}
+                    </Grid>
+                  );
+                })()}
+              </Box>
+            )}
+
+            {/* Business Metadata Tab */}
+            {activeTab === 2 && (
+              <Box>
+                {(() => {
+                  const bizMeta = discovery.storage_data_metadata?.business_metadata || {};
+                  const context = bizMeta.context || {};
+                  const classification = bizMeta.classification || {};
+                  const storageLocation = bizMeta.storage_location || {};
+                  
+                  const renderField = (label, value) => (
+                    <Grid item xs={6} key={label}>
+                  <Card variant="outlined">
+                    <CardContent>
+                          <Typography color="text.secondary" gutterBottom sx={{ fontWeight: 500, fontSize: '0.875rem' }}>
+                            {label.toUpperCase()}
+                          </Typography>
+                          <Typography variant="body1" sx={{ wordBreak: 'break-word', fontSize: '0.875rem' }}>
+                            {value || 'N/A'}
+                          </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                  );
+                  
+                  // Get actual values from discovery object
+                  const environment = context.environment || discovery.environment;
+                  const envType = context.env_type || discovery.env_type;
+                  const dataSourceType = context.data_source_type || discovery.data_source_type;
+                  const folderPath = context.folder_path || discovery.folder_path;
+                  const tags = classification.tags || discovery.tags;
+                  // Data classification is auto-determined from PII detection
+                  const dataClassification = classification.data_classification || 'Internal';
+                  const sensitivityLevel = classification.sensitivity_level;
+                  const container = storageLocation.container || discovery.storage_location?.container?.name;
+                  const accountName = storageLocation.account_name || discovery.storage_location?.connection?.account_name;
+                  const fullPath = storageLocation.full_path || discovery.storage_path || discovery.storage_location?.path;
+                  
+                  // Format tags for display
+                  const formatTags = (tagsValue) => {
+                    if (!tagsValue) return 'N/A';
+                    if (Array.isArray(tagsValue) && tagsValue.length > 0) {
+                      return tagsValue.join(', ');
+                    }
+                    if (typeof tagsValue === 'object') {
+                      return JSON.stringify(tagsValue);
+                    }
+                    return String(tagsValue);
+                  };
+                  
+                  return (
+                    <Grid container spacing={2}>
+                      {environment && renderField('Environment', environment)}
+                      {/* Always show these fields */}
+                      {renderField('Environment Type', envType || 'N/A')}
+                      {renderField('Data Source Type', dataSourceType || 'N/A')}
+                      {renderField('Tags', formatTags(tags))}
+                      {renderField('Data Classification', dataClassification)}
+                      {folderPath && renderField('Folder Path', folderPath)}
+                      {sensitivityLevel && renderField('Sensitivity Level', sensitivityLevel)}
+                      {container && renderField('Container', container)}
+                      {accountName && renderField('Account Name', accountName)}
+                      {fullPath && (
+                        <Grid item xs={12}>
+                          <Card variant="outlined">
+                            <CardContent>
+                              <Typography color="text.secondary" gutterBottom sx={{ fontWeight: 500, fontSize: '0.875rem' }}>
+                                FULL PATH
+                              </Typography>
+                              <Typography variant="body1" sx={{ wordBreak: 'break-all', fontFamily: 'monospace', fontSize: '0.875rem' }}>
+                                {fullPath}
+                              </Typography>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                      )}
+                    </Grid>
+                  );
+                })()}
+              </Box>
+            )}
+
+            {/* Schema & PII Tab */}
+            {activeTab === 3 && (
+              <Box>
+                {(() => {
+                  const schemaPii = discovery.storage_data_metadata?.schema_pii || {};
+                  const schema = schemaPii.schema || discovery.schema_json || {};
+                  const piiSummary = schemaPii.pii_summary || {};
+                  
+                  if (!schema.columns || schema.columns.length === 0) {
+                    return <Alert severity="info">No schema information available</Alert>;
+                  }
+                  
+                  return (
                   <Box>
-                    {discovery.schema_json.num_rows !== undefined && (
-                      <Alert severity="info" sx={{ mb: 2 }}>
-                        {discovery.schema_json.num_columns} columns
-                        {discovery.schema_json.num_rows !== null && ` • ${discovery.schema_json.num_rows.toLocaleString()} rows`}
-                        {discovery.schema_json.structure && ` • Structure: ${discovery.schema_json.structure}`}
+                      {piiSummary.total_columns > 0 && (
+                        <Alert severity={piiSummary.pii_columns_count > 0 ? "warning" : "success"} sx={{ mb: 2 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            Schema Summary: {piiSummary.total_columns} columns
+                            {schema.num_rows !== null && schema.num_rows !== undefined && ` • ${schema.num_rows.toLocaleString()} rows`}
+                            {schema.structure && ` • Structure: ${schema.structure}`}
+                          </Typography>
+                          {piiSummary.pii_columns_count > 0 && (
+                            <Typography variant="body2" sx={{ mt: 1 }}>
+                              ⚠️ PII Detected: {piiSummary.pii_columns_count} column(s) contain PII
+                              {piiSummary.pii_types_found && piiSummary.pii_types_found.length > 0 && (
+                                <> • Types: {piiSummary.pii_types_found.join(', ')}</>
+                              )}
+                            </Typography>
+                          )}
                       </Alert>
                     )}
+                      
                     <TableContainer component={Paper} variant="outlined">
                       <Table>
                         <TableHead>
@@ -162,11 +356,11 @@ const DiscoveryDetailsDialog = ({ open, discovery, loading, onClose }) => {
                             <TableCell sx={{ fontWeight: 600 }}>Column Name</TableCell>
                             <TableCell sx={{ fontWeight: 600 }}>Type</TableCell>
                             <TableCell sx={{ fontWeight: 600 }}>Nullable</TableCell>
-                            <TableCell sx={{ fontWeight: 600 }}>PII Detection (Azure DLP)</TableCell>
+                            <TableCell sx={{ fontWeight: 600 }}>PII Detection</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {discovery.schema_json.columns.map((column, index) => (
+                            {schema.columns.map((column, index) => (
                             <TableRow key={index}>
                               <TableCell sx={{ fontFamily: 'monospace' }}>{column.name}</TableCell>
                               <TableCell sx={{ fontFamily: 'monospace', color: 'primary.main' }}>{column.type}</TableCell>
@@ -203,95 +397,8 @@ const DiscoveryDetailsDialog = ({ open, discovery, loading, onClose }) => {
                       </Table>
                     </TableContainer>
                   </Box>
-                ) : (
-                  <Alert severity="info">No schema information available</Alert>
-                )}
-              </Box>
-            )}
-
-            {/* Storage Metadata Tab */}
-            {activeTab === 2 && (
-              <Box>
-                {discovery.storage_metadata ? (
-                  <Grid container spacing={2}>
-                    {(() => {
-                      // Handle both nested (azure: {...}) and flat structures
-                      const metadata = discovery.storage_metadata.azure || discovery.storage_metadata;
-                      
-                      // Get file metadata for size and content type
-                      const fileMetadata = discovery.file_metadata || {};
-                      const basicInfo = fileMetadata.basic || {};
-                      
-                      // Define the fields to show in order
-                      const fieldsToShow = [
-                        { key: 'access_tier', label: 'Access Tier', value: metadata?.access_tier },
-                        { key: 'creation_time', label: 'Creation Time', value: metadata?.creation_time || basicInfo.created_at || fileMetadata.timestamps?.created_at },
-                        { key: 'type', label: 'Type', value: metadata?.type || 'Block blob' },
-                        { key: 'size', label: 'Size', value: basicInfo.size_bytes ? formatBytes(basicInfo.size_bytes) : 'N/A' },
-                        { key: 'content_type', label: 'Content Type', value: basicInfo.content_type || basicInfo.mime_type || metadata?.content_type },
-                        { key: 'etag', label: 'ETag', value: metadata?.etag },
-                        { key: 'last_modified', label: 'Last Modified', value: metadata?.last_modified || fileMetadata.timestamps?.last_modified },
-                        { key: 'lease_status', label: 'Lease Status', value: metadata?.lease_status },
-                      ];
-                      
-                      return fieldsToShow.map((field) => {
-                        let displayValue = field.value;
-                        
-                        // Format dates
-                        if (field.key === 'creation_time' || field.key === 'last_modified') {
-                          if (displayValue) {
-                            try {
-                              const date = new Date(displayValue);
-                              displayValue = date.toLocaleString('en-US', {
-                                day: '2-digit',
-                                month: '2-digit',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                second: '2-digit',
-                                hour12: true
-                              });
-                            } catch (e) {
-                              // Keep original if parsing fails
-                            }
-                          }
-                        }
-                        
-                        // Handle null/undefined
-                        if (displayValue === null || displayValue === undefined || displayValue === '') {
-                          displayValue = 'N/A';
-                        }
-                        
-                        // Handle objects (like metadata)
-                        if (typeof displayValue === 'object' && !Array.isArray(displayValue)) {
-                          const keys = Object.keys(displayValue);
-                          if (keys.length === 0) {
-                            displayValue = '-';
-                          } else {
-                            displayValue = JSON.stringify(displayValue, null, 2);
-                          }
-                        }
-                        
-                        return (
-                          <Grid item xs={6} key={field.key}>
-                            <Card variant="outlined">
-                              <CardContent>
-                                <Typography color="text.secondary" gutterBottom sx={{ fontWeight: 500, fontSize: '0.875rem' }}>
-                                  {field.label.toUpperCase()}
-                                </Typography>
-                                <Typography variant="body1" sx={{ wordBreak: 'break-word', fontFamily: 'monospace', fontSize: '0.875rem' }}>
-                                  {String(displayValue)}
-                                </Typography>
-                              </CardContent>
-                            </Card>
-                          </Grid>
-                        );
-                      });
+                  );
                     })()}
-                  </Grid>
-                ) : (
-                  <Alert severity="info">No storage metadata available</Alert>
-                )}
               </Box>
             )}
           </DialogContent>

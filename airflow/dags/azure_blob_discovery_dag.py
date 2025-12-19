@@ -148,6 +148,12 @@ def discover_azure_blobs(**context):
         try:
             blob_client = AzureBlobClient(connection_string)
             
+            # If containers list is empty, scan all containers
+            if not containers or len(containers) == 0:
+                logger.info('FN:discover_azure_blobs containers_empty_scanning_all')
+                containers = blob_client.list_containers()
+                logger.info('FN:discover_azure_blobs found_containers:{}'.format(len(containers)))
+            
             for container_name in containers:
                 logger.info('FN:discover_azure_blobs container_name:{}'.format(container_name))
                 
@@ -209,8 +215,8 @@ def discover_azure_blobs(**context):
                                             file_sample = blob_client.get_blob_tail(container_name, blob_path, max_bytes=8192)
                                             logger.info('FN:discover_azure_blobs blob_path:{} file_extension:{} sample_bytes:{}'.format(blob_path, file_extension, len(file_sample)))
                                         else:
-                                            # CSV/JSON: Just need headers/keys from the beginning - NO data rows
-                                            file_sample = blob_client.get_blob_sample(container_name, blob_path, max_bytes=1024)
+                                            # CSV/JSON: Get headers + 1-2 sample rows for reference (banking compliance)
+                                            file_sample = blob_client.get_blob_sample(container_name, blob_path, max_bytes=2048)
                                             logger.info('FN:discover_azure_blobs blob_path:{} file_extension:{} sample_bytes:{}'.format(blob_path, file_extension, len(file_sample)))
                                     except Exception as e:
                                         logger.warning('FN:discover_azure_blobs blob_path:{} error:{}'.format(blob_path, str(e)))
@@ -269,6 +275,49 @@ def discover_azure_blobs(**context):
                                     
                                     file_metadata = metadata.get("file_metadata")
                                     
+                                    # Update structured_metadata with actual values from discovery
+                                    structured_metadata = metadata.get("structured_metadata", {})
+                                    if structured_metadata:
+                                        # Populate operational metadata
+                                        structured_metadata["operational_metadata"]["discovery"]["discovered_at"] = datetime.utcnow().isoformat() + "Z"
+                                        structured_metadata["operational_metadata"]["discovery"]["last_checked_at"] = datetime.utcnow().isoformat() + "Z"
+                                        structured_metadata["operational_metadata"]["discovery"]["discovery_batch_id"] = discovery_batch_id
+                                        structured_metadata["operational_metadata"]["discovery"]["schema_version"] = "1.0"
+                                        
+                                        # Determine environment type from context if not explicitly set
+                                        inferred_env_type = env_type
+                                        if not inferred_env_type or inferred_env_type == "":
+                                            # Try to infer from account name, container, or folder path
+                                            account_lower = account_name.lower() if account_name else ""
+                                            container_lower = container_name.lower() if container_name else ""
+                                            folder_lower = folder_path.lower() if folder_path else ""
+                                            
+                                            if any(x in account_lower for x in ["prod", "production"]):
+                                                inferred_env_type = "production"
+                                            elif any(x in account_lower for x in ["dev", "development", "test"]):
+                                                inferred_env_type = "development"
+                                            elif any(x in container_lower for x in ["prod", "production"]):
+                                                inferred_env_type = "production"
+                                            elif any(x in container_lower for x in ["dev", "development", "test"]):
+                                                inferred_env_type = "development"
+                                            elif any(x in folder_lower for x in ["prod", "production"]):
+                                                inferred_env_type = "production"
+                                            elif any(x in folder_lower for x in ["dev", "development", "test"]):
+                                                inferred_env_type = "development"
+                                            else:
+                                                inferred_env_type = "production"  # Default to production
+                                        
+                                        # Populate business metadata
+                                        structured_metadata["business_metadata"]["context"]["environment"] = environment
+                                        structured_metadata["business_metadata"]["context"]["env_type"] = inferred_env_type
+                                        structured_metadata["business_metadata"]["context"]["data_source_type"] = data_source_type
+                                        structured_metadata["business_metadata"]["context"]["folder_path"] = folder_path
+                                        structured_metadata["business_metadata"]["storage_location"]["container"] = container_name
+                                        structured_metadata["business_metadata"]["storage_location"]["account_name"] = account_name
+                                        structured_metadata["business_metadata"]["storage_location"]["full_path"] = blob_path
+                                        
+                                        # Data classification is already set by extract_file_metadata based on PII detection
+                                    
                                     should_update, schema_changed = should_update_or_insert(existing_record, file_hash, schema_hash)
                                     
                                     if not should_update and not existing_record:
@@ -320,16 +369,19 @@ def discover_azure_blobs(**context):
                                                                 schema_json = %s,
                                                                 schema_hash = %s,
                                                                 storage_metadata = %s,
+                                                                storage_data_metadata = %s,
                                                                 discovery_info = %s,
                                                                 last_checked_at = NOW(),
                                                                 updated_at = NOW()
                                                             WHERE id = %s
                                                         """
+                                                        structured_metadata_json = json.dumps(structured_metadata) if structured_metadata else json.dumps({})
                                                         cursor.execute(update_sql, (
                                                             json.dumps(file_metadata),
                                                             json.dumps(metadata.get("schema_json", {})),
                                                             schema_hash,
                                                             json.dumps(metadata.get("storage_metadata", {})),
+                                                            structured_metadata_json,
                                                             json.dumps(discovery_info),
                                                             existing_record["id"]
                                                         ))
@@ -361,17 +413,25 @@ def discover_azure_blobs(**context):
                                                         )
                                                     """
                                                     
+                                                    # Get inferred env_type from structured_metadata if available
+                                                    inferred_env_type = env_type
+                                                    if structured_metadata and structured_metadata.get("business_metadata", {}).get("context", {}).get("env_type"):
+                                                        inferred_env_type = structured_metadata["business_metadata"]["context"]["env_type"]
+                                                    
+                                                    # Store structured_metadata in storage_data_metadata column
+                                                    structured_metadata_json = json.dumps(structured_metadata) if structured_metadata else json.dumps({})
+                                                    
                                                     cursor.execute(insert_sql, (
                                                         json.dumps(storage_location),
                                                         json.dumps(file_metadata),
                                                         json.dumps(metadata.get("schema_json", {})),
                                                         schema_hash,
                                                         environment,
-                                                        env_type,
+                                                        inferred_env_type,  # Use inferred env_type
                                                         data_source_type,
                                                         folder_path,
                                                         json.dumps(metadata.get("storage_metadata", {})),
-                                                        json.dumps({}),
+                                                        structured_metadata_json,
                                                         json.dumps(discovery_info),
                                                     ))
                                                     

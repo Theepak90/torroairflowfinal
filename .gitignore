@@ -27,6 +27,8 @@ build/
 .env
 .env.local
 .env.*.local
+# But allow .env.template files
+!.env.template
 # Keep .env.example files (they contain placeholders, not real credentials)
 !.env.example
 
