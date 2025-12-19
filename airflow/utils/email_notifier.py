@@ -122,8 +122,8 @@ def send_notification_email(discoveries: List[Dict], recipients: List[str]):
                 </tr>
         """
         
-        # Use environment variable or default to localhost
-        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+        # Use environment variable or default (should be set via .env for production)
+        frontend_url = os.getenv("FRONTEND_URL", "")
         
         for discovery in discoveries:
             discovery_id = discovery["id"]

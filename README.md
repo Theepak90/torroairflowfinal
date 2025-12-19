@@ -2,23 +2,39 @@
 
 ## Prerequisites
 
-- Python 3.9+ 
-- Node.js 18+ and npm
-- MySQL 8.0+
-- Nginx (for reverse proxy)
-- Azure Storage Account (for data discovery)
-- Azure AI Language Service (optional, for PII detection)
+### Required Software
+
+1. **Python 3.11** (for Airflow) and **Python 3.9+** (for Backend)
+   - Install: `brew install python@3.11 python@3.9` (macOS) or use your system package manager
+   - Verify: `python3.11 --version` and `python3 --version`
+
+2. **Node.js 18+** and **npm**
+   - Install: `brew install node` (macOS) or download from [nodejs.org](https://nodejs.org/)
+   - Verify: `node --version` and `npm --version`
+
+3. **MySQL 8.0+**
+   - Install: `brew install mysql` (macOS) or use your system package manager
+   - Verify: `mysql --version`
+   - Start MySQL: `brew services start mysql` (macOS) or `sudo systemctl start mysql` (Linux)
+
+4. **Nginx** (for reverse proxy)
+   - Install: `brew install nginx` (macOS) or `sudo apt-get install nginx` (Linux)
+   - Verify: `nginx -v`
+
+5. **Git**
+   - Install: `brew install git` (macOS) or use your system package manager
+   - Verify: `git --version`
 
 ## Quick Setup
 
 ### 1. Clone Repository
 
-```bash
-git clone https://github.com/Theepak90/torroairflowfinal.git
-cd torroairflowfinal
-```
+   ```bash
+   git clone <repository-url>
+   cd torroupdatedairflow
+   ```
 
-### 2. MySQL Database Setup
+### 2. Database Setup
 
 ```bash
 # Login to MySQL
@@ -28,188 +44,206 @@ mysql -u root -p
 CREATE DATABASE torro_discovery;
 CREATE DATABASE airflow_metadata;
 
-# Create user
-CREATE USER 'torro_user'@'localhost' IDENTIFIED BY 'YOUR_PASSWORD';
-GRANT ALL PRIVILEGES ON torro_discovery.* TO 'torro_user'@'localhost';
-GRANT ALL PRIVILEGES ON airflow_metadata.* TO 'torro_user'@'localhost';
+# Create user (optional, or use root)
+CREATE USER 'root'@'localhost' IDENTIFIED BY 'YourPassword';
+GRANT ALL PRIVILEGES ON torro_discovery.* TO 'root'@'localhost';
+GRANT ALL PRIVILEGES ON airflow_metadata.* TO 'root'@'localhost';
 FLUSH PRIVILEGES;
 EXIT;
-
-# Import schema
-mysql -u torro_user -p torro_discovery < database/migrations/data_discovery.sql
 ```
 
-### 3. Backend Setup
+### 3. Create Database Tables
 
 ```bash
+# Run migration script
+mysql -u root -p torro_discovery < database/migrations/data_discovery.sql
+```
+
+### 4. Environment Configuration
+
+Create `.env` file in project root:
+
+```bash
+# Copy template (if exists) or create new
+cat > .env << 'EOF'
+# MySQL Database Configuration
+MYSQL_HOST=localhost
+MYSQL_PORT=3306
+MYSQL_USER=root
+MYSQL_PASSWORD=YourPassword
+MYSQL_DATABASE=torro_discovery
+MYSQL_DATABASE_AIRFLOW=airflow_metadata
+
+# Backend Configuration
+SECRET_KEY=your-secret-key-here
+CORS_ORIGINS=*
+
+# Database Connection Pool Settings
+DB_POOL_MIN=5
+DB_POOL_MAX=20
+DB_POOL_RECYCLE=3600
+
+# Airflow Configuration
+AIRFLOW_FERNET_KEY=generate-with-python: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+AIRFLOW_USERNAME=airflow
+AIRFLOW_PASSWORD=airflow
+
+# Azure Blob Storage Configuration
+AZURE_STORAGE_ACCOUNT_NAME=your-account-name
+AZURE_STORAGE_CONNECTION_STRING=your-connection-string
+AZURE_CONTAINERS=
+AZURE_FOLDERS=
+   AZURE_ENVIRONMENT=prod
+   AZURE_ENV_TYPE=production
+   AZURE_DATA_SOURCE_TYPE=credit_card
+   
+# Email Notification Configuration
+NOTIFICATION_EMAILS=email1@example.com,email2@example.com
+   SMTP_SERVER=smtp.gmail.com
+   SMTP_PORT=587
+SMTP_USER=
+SMTP_PASSWORD=
+
+# Azure AI Language (DLP) Configuration (Optional)
+AZURE_AI_LANGUAGE_ENDPOINT=
+AZURE_AI_LANGUAGE_KEY=
+
+# Frontend URL (for email notifications)
+FRONTEND_URL=https://your-domain.com
+EOF
+```
+
+**Important:** Replace all placeholder values with your actual credentials.
+
+### 5. Backend Setup
+
+   ```bash
 cd backend
 
 # Create virtual environment
 python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Activate virtual environment
+source venv/bin/activate  # On macOS/Linux
+# OR
+venv\Scripts\activate  # On Windows
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Configure environment
-cp .env.template .env
-# Edit .env with your MySQL password and other settings
-
-# Run backend
-python3 -m app.main
+# Verify installation
+python3 -m app.main --help
 ```
 
-Backend runs on `http://127.0.0.1:5000`
+### 6. Airflow Setup
 
-### 4. Frontend Setup
+   ```bash
+cd airflow
 
-```bash
+# Create virtual environment with Python 3.11
+python3.11 -m venv venv
+
+# Activate virtual environment
+source venv/bin/activate  # On macOS/Linux
+# OR
+venv\Scripts\activate  # On Windows
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Set Airflow home
+export AIRFLOW_HOME=$(pwd)
+
+# Initialize Airflow database
+airflow db migrate
+
+# Create Airflow admin user
+airflow users create \
+     --username airflow \
+    --password airflow \
+     --firstname Admin \
+     --lastname User \
+     --role Admin \
+    --email admin@example.com
+
+# Verify installation
+airflow version
+```
+
+### 7. Frontend Setup
+
+   ```bash
 cd frontend
 
 # Install dependencies
 npm install
 
-# Run frontend
-npm run dev
+# Verify installation
+npm run build
 ```
 
-Frontend runs on `http://127.0.0.1:3000`
+### 8. Nginx Setup
 
-### 5. Airflow Setup
+   ```bash
+# Copy Nginx configuration
+sudo cp nginx/torro-reverse-proxy.conf /opt/homebrew/etc/nginx/servers/  # macOS Homebrew
+# OR
+sudo cp nginx/torro-reverse-proxy.conf /etc/nginx/sites-available/  # Linux
+sudo ln -s /etc/nginx/sites-available/torro-reverse-proxy.conf /etc/nginx/sites-enabled/  # Linux
 
-```bash
-cd airflow
+# Generate SSL certificates (for HTTPS)
+mkdir -p nginx/ssl
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout nginx/ssl/key.pem \
+    -out nginx/ssl/cert.pem \
+    -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"
 
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Copy SSL certificates to Nginx directory
+sudo cp nginx/ssl/*.pem /opt/homebrew/etc/nginx/ssl/  # macOS Homebrew
+# OR
+sudo cp nginx/ssl/*.pem /etc/nginx/ssl/  # Linux
 
-# Install dependencies
-pip install -r requirements.txt
-
-# Configure environment
-cp .env.template .env
-# Edit .env with your Azure credentials, MySQL password, SMTP settings
-
-# Initialize Airflow database
-export AIRFLOW_HOME=$(pwd)
-airflow db init
-
-# Create admin user
-airflow users create \
-    --username admin \
-    --firstname Admin \
-    --lastname User \
-    --role Admin \
-    --email admin@example.com \
-    --password admin
-
-# Start Airflow webserver (in one terminal)
-airflow webserver --port 8080
-
-# Start Airflow scheduler (in another terminal)
-airflow scheduler
-```
-
-Airflow runs on `http://127.0.0.1:8080`
-
-### 6. Nginx Reverse Proxy Setup
-
-```bash
-# Copy nginx config
-sudo cp nginx/torro-reverse-proxy.conf /opt/homebrew/etc/nginx/servers/
-
-# Or for Linux:
-# sudo cp nginx/torro-reverse-proxy.conf /etc/nginx/sites-available/
-# sudo ln -s /etc/nginx/sites-available/torro-reverse-proxy.conf /etc/nginx/sites-enabled/
-
-# Update SSL certificate paths in nginx/torro-reverse-proxy.conf if needed
-# Generate SSL certificates if you don't have them:
-# openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-#   -keyout nginx/ssl/key.pem \
-#   -out nginx/ssl/cert.pem
-
-# Test nginx configuration
+# Test Nginx configuration
 sudo nginx -t
 
-# Restart nginx
-sudo brew services restart nginx  # macOS
-# sudo systemctl restart nginx     # Linux
-```
-
-Access via:
-- Frontend: `https://127.0.0.1/`
-- Backend API: `https://127.0.0.1/api/discovery/stats`
-- Airflow: `https://127.0.0.1/airflow/`
-
-## Environment Variables
-
-### Backend (.env)
-
-```bash
-MYSQL_HOST=localhost
-MYSQL_PORT=3306
-MYSQL_USER=torro_user
-MYSQL_PASSWORD=YOUR_MYSQL_PASSWORD
-MYSQL_DATABASE=torro_discovery
-CORS_ORIGINS=http://localhost:3000,https://your-domain.com
-SECRET_KEY=your-secret-key-here
-```
-
-### Airflow (.env)
-
-```bash
-# MySQL
-MYSQL_HOST=localhost
-MYSQL_PORT=3306
-MYSQL_USER=torro_user
-MYSQL_PASSWORD=YOUR_MYSQL_PASSWORD
-MYSQL_DATABASE=airflow_metadata
-
-# Azure Storage
-AZURE_STORAGE_ACCOUNT_NAME=your_storage_account_name
-AZURE_STORAGE_CONNECTION_STRING=your_azure_connection_string
-AZURE_CONTAINERS=container1,container2
-
-# Azure AI Language (for PII detection)
-AZURE_AI_LANGUAGE_ENDPOINT=https://your-language-resource.cognitiveservices.azure.com/
-AZURE_AI_LANGUAGE_KEY=your_ai_language_key
-
-# Email
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your_email@gmail.com
-SMTP_PASSWORD=your_email_password
-EMAIL_RECIPIENTS=recipient1@example.com,recipient2@example.com
-FRONTEND_URL=https://your-domain.com
+# Start/Restart Nginx
+sudo brew services restart nginx  # macOS Homebrew
+# OR
+sudo systemctl restart nginx  # Linux
 ```
 
 ## Running Services
 
-### Start All Services
+### Start Backend
 
-**Terminal 1 - Backend:**
-```bash
-cd backend
-source venv/bin/activate
+   ```bash
+   cd backend
+   source venv/bin/activate
 python3 -m app.main
-```
+   ```
 
-**Terminal 2 - Frontend:**
-```bash
-cd frontend
+Backend runs on `http://0.0.0.0:5001`
+
+### Start Frontend
+
+   ```bash
+   cd frontend
 npm run dev
 ```
 
-**Terminal 3 - Airflow Webserver:**
+Frontend runs on `http://0.0.0.0:3000`
+
+### Start Airflow
+
+**Terminal 1 - Airflow Webserver:**
 ```bash
 cd airflow
 source venv/bin/activate
 export AIRFLOW_HOME=$(pwd)
-airflow webserver --port 8080
+airflow webserver --port 8081
 ```
 
-**Terminal 4 - Airflow Scheduler:**
+**Terminal 2 - Airflow Scheduler:**
 ```bash
 cd airflow
 source venv/bin/activate
@@ -217,88 +251,113 @@ export AIRFLOW_HOME=$(pwd)
 airflow scheduler
 ```
 
-**Terminal 5 - Nginx:**
-```bash
-sudo nginx  # or sudo systemctl start nginx
-```
+Airflow runs on `http://0.0.0.0:8081`
 
-## Testing
+### Access via Nginx (HTTPS)
 
-### Test Backend Directly
-```bash
-curl http://127.0.0.1:5000/health
-curl http://127.0.0.1:5000/api/discovery/stats
-```
+- Frontend: `https://127.0.0.1/`
+- Backend API: `https://127.0.0.1/api/discovery/stats`
+- Airflow: `https://127.0.0.1/airflow/`
 
-### Test Through Nginx
+## Verification
+
+### Check Services
+
 ```bash
-curl -k https://127.0.0.1/health
-curl -k https://127.0.0.1/api/discovery/stats
+# Backend
+curl http://127.0.0.1:5001/health
+
+# Backend via Nginx
+curl -k https://127.0.0.1/api/health
+
+# Frontend
 curl -k https://127.0.0.1/
+
+# Airflow
+curl -k https://127.0.0.1/airflow/
 ```
 
-## Project Structure
+### Test Discovery
 
-```
-torroairflowfinal/
-├── backend/              # Flask REST API
-│   ├── app/
-│   ├── .env.template
-│   └── requirements.txt
-├── frontend/            # React frontend
-│   ├── src/
-│   └── package.json
-├── airflow/            # Airflow DAGs and utilities
-│   ├── dags/
-│   ├── utils/
-│   ├── config/
-│   ├── .env.template
-│   └── requirements.txt
-├── nginx/              # Nginx reverse proxy config
-│   ├── torro-reverse-proxy.conf
-│   └── ssl/
-├── database/           # Database migrations
-│   └── migrations/
-└── README.md
-```
+1. **Automatic Discovery (Airflow):**
+   - Upload a file to Azure Blob Storage
+   - Wait 5 minutes (Airflow runs every 5 minutes)
+   - Check frontend for discovered file
+
+2. **Manual Discovery (Refresh Button):**
+   - Upload a file to Azure Blob Storage
+   - Click "Refresh" button in frontend
+   - File should appear immediately
 
 ## Troubleshooting
 
 ### Backend won't start
-- Check MySQL is running: `mysql -u root -p`
+- Check MySQL is running: `brew services list` (macOS) or `sudo systemctl status mysql` (Linux)
 - Verify `.env` file exists and has correct MySQL credentials
-- Check port 5000 is not in use: `lsof -i :5000`
-
-### Frontend won't start
-- Check Node.js version: `node --version` (needs 18+)
-- Delete `node_modules` and reinstall: `rm -rf node_modules && npm install`
-- Check port 3000 is not in use: `lsof -i :3000`
+- Check port 5001 is not in use: `lsof -i :5001`
 
 ### Airflow won't start
-- Verify `.env` file exists in airflow directory
+- Ensure Python 3.11 is used: `python3.11 --version`
 - Check Airflow database is initialized: `airflow db check`
-- Check port 8080 is not in use: `lsof -i :8080`
+- Verify `AIRFLOW_HOME` is set correctly
+
+### Frontend won't start
+- Check Node.js version: `node --version` (should be 18+)
+- Delete `node_modules` and reinstall: `rm -rf node_modules && npm install`
 
 ### Nginx errors
 - Test configuration: `sudo nginx -t`
-- Check error logs: `tail -f /opt/homebrew/var/log/nginx/error.log`
-- Verify SSL certificates exist: `ls -la nginx/ssl/`
+- Check SSL certificates exist: `ls -la /opt/homebrew/etc/nginx/ssl/`
+- Verify ports 80/443 are not in use: `lsof -i :80` and `lsof -i :443`
 
-### MySQL connection errors
-- Verify user exists: `mysql -u torro_user -p`
-- Check database exists: `mysql -u root -p -e "SHOW DATABASES;"`
-- Grant permissions: `GRANT ALL PRIVILEGES ON torro_discovery.* TO 'torro_user'@'localhost';`
+### Import errors
+- Ensure virtual environments are activated
+- Reinstall dependencies: `pip install -r requirements.txt`
+- Check Python version matches requirements
 
-## Production Deployment
+## Project Structure
 
-1. Update `.env` files with production values
-2. Use production SSL certificates in `nginx/ssl/`
-3. Update `server_name` in nginx config to your domain
-4. Set `DEBUG=False` in backend config
-5. Use production MySQL credentials
-6. Configure firewall to allow ports 80, 443
-7. Set up process managers (systemd, PM2, etc.) for services
+```
+torroupdatedairflow/
+├── backend/          # Flask backend API
+│   ├── app/
+│   ├── requirements.txt
+│   └── venv/
+├── frontend/         # React frontend
+│   ├── src/
+│   ├── package.json
+│   └── node_modules/
+├── airflow/          # Airflow DAGs and utilities
+│   ├── dags/
+│   ├── utils/
+│   ├── config/
+│   ├── requirements.txt
+│   └── venv/
+├── nginx/            # Nginx reverse proxy config
+│   ├── torro-reverse-proxy.conf
+│   └── ssl/
+├── database/         # Database migrations
+│   └── migrations/
+└── .env              # Environment variables (create this)
+```
 
-## Support
+## Ports Used
 
-For issues, create an issue on GitHub: https://github.com/Theepak90/torroairflowfinal/issues
+- **3000**: Frontend (Vite dev server)
+- **5001**: Backend (Flask API)
+- **8081**: Airflow (Webserver)
+- **3306**: MySQL
+- **443**: Nginx (HTTPS)
+- **80**: Nginx (HTTP redirect)
+
+## Environment Variables
+
+All configuration is in `.env` file at project root. See step 4 for required variables.
+
+## Next Steps
+
+1. Configure Azure credentials in `.env`
+2. Start all services (Backend, Frontend, Airflow)
+3. Access via `https://127.0.0.1/`
+4. Upload test files to Azure and verify discovery
+

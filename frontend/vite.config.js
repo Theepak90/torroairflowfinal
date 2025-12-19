@@ -2,8 +2,9 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
-  // Get API base URL from environment variable or default
-  const apiBaseUrl = process.env.VITE_API_BASE_URL || 'http://localhost:5000';
+  // Get API base URL from environment variable
+  // In production with Nginx, this should be undefined to use relative paths
+  const apiBaseUrl = process.env.VITE_API_BASE_URL;
   
   return {
     plugins: [react()],
@@ -14,6 +15,7 @@ export default defineConfig(({ mode }) => {
         '/api': {
           target: apiBaseUrl,
           changeOrigin: true,
+          rewrite: (path) => path, // Keep /api prefix
         },
       },
     },

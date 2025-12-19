@@ -1,15 +1,18 @@
 import os
 from typing import Dict
 from dotenv import load_dotenv
+from pathlib import Path
 
-load_dotenv()
+# Load .env from project root (parent of airflow directory)
+env_path = Path(__file__).parent.parent.parent / '.env'
+load_dotenv(dotenv_path=env_path)
 
 AZURE_STORAGE_ACCOUNTS = [
     {
         "name": os.getenv("AZURE_STORAGE_ACCOUNT_NAME", "myaccount"),
         "connection_string": os.getenv("AZURE_STORAGE_CONNECTION_STRING", ""),
-        "containers": [c.strip() for c in os.getenv("AZURE_CONTAINERS", "data-container").split(",") if c.strip()],
-        "folders": [f.strip() for f in os.getenv("AZURE_FOLDERS", "folder/credit_card").split(",") if f.strip()],
+        "containers": [c.strip() for c in os.getenv("AZURE_CONTAINERS", "").split(",") if c.strip()],  # Empty = scan all containers
+        "folders": [f.strip() for f in os.getenv("AZURE_FOLDERS", "").split(",") if f.strip()],  # Empty = scan root of containers
         "environment": os.getenv("AZURE_ENVIRONMENT", "prod"),
         "env_type": os.getenv("AZURE_ENV_TYPE", "production"),
         "data_source_type": os.getenv("AZURE_DATA_SOURCE_TYPE", "credit_card"),
@@ -27,7 +30,7 @@ DISCOVERY_CONFIG = {
 }
 
 DB_CONFIG = {
-    "host": os.getenv("MYSQL_HOST", "localhost"),
+    "host": os.getenv("MYSQL_HOST", "127.0.0.1"),
     "port": int(os.getenv("MYSQL_PORT", "3306")),
     "user": os.getenv("MYSQL_USER", "root"),
     "password": os.getenv("MYSQL_PASSWORD", ""),

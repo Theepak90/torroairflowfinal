@@ -28,6 +28,10 @@ def create_app(config_name='default'):
     def health_check():
         return {'status': 'healthy'}, 200
     
+    @app.route('/api/health', methods=['GET'])
+    def api_health_check():
+        return {'status': 'healthy'}, 200
+    
     @app.teardown_appcontext
     def close_db(error):
         # Connections are automatically returned to pool via contextmanager
@@ -39,4 +43,4 @@ def create_app(config_name='default'):
 
 if __name__ == '__main__':
     app = create_app('development')
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5001, debug=True)

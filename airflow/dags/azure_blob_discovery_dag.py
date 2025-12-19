@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from airflow import DAG
-from airflow.operators.python import PythonOperator
+from airflow.operators.python import PythonOperator  # type: ignore
 import logging
 import json
 import pymysql
@@ -515,6 +515,7 @@ dag = DAG(
     max_active_runs=1,  # Prevent overlapping runs (memory + stability)
     max_active_tasks=1,  # Process one task at a time to avoid memory exhaustion
     tags=['data-discovery', 'azure-blob'],
+    is_paused_upon_creation=False,  # Auto-start on first setup
 )
 
 discovery_task = PythonOperator(
