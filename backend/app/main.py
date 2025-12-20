@@ -43,4 +43,6 @@ def create_app(config_name='default'):
 
 if __name__ == '__main__':
     app = create_app('development')
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    from app.config import config
+    port = config['development'].BACKEND_PORT
+    app.run(host='0.0.0.0', port=port, debug=True)
