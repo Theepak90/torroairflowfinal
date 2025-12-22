@@ -7,10 +7,18 @@ from pathlib import Path
 env_path = Path(__file__).parent.parent.parent / '.env'
 load_dotenv(dotenv_path=env_path)
 
+# Azure Authentication Method: "connection_string" or "service_principal"
+AZURE_AUTH_METHOD = os.getenv("AZURE_AUTH_METHOD", "connection_string")
+
 AZURE_STORAGE_ACCOUNTS = [
     {
         "name": os.getenv("AZURE_STORAGE_ACCOUNT_NAME", "myaccount"),
         "connection_string": os.getenv("AZURE_STORAGE_CONNECTION_STRING", ""),
+        # Service Principal credentials (for IT team provisioned account)
+        "client_id": os.getenv("AZURE_CLIENT_ID", ""),
+        "client_secret": os.getenv("AZURE_CLIENT_SECRET", ""),
+        "tenant_id": os.getenv("AZURE_TENANT_ID", ""),
+        "auth_method": AZURE_AUTH_METHOD,  # "connection_string" or "service_principal"
         "containers": [c.strip() for c in os.getenv("AZURE_CONTAINERS", "").split(",") if c.strip()],  # Empty = scan all containers
         "folders": [f.strip() for f in os.getenv("AZURE_FOLDERS", "").split(",") if f.strip()],  # Empty = scan root of containers
         "environment": os.getenv("AZURE_ENVIRONMENT", "prod"),

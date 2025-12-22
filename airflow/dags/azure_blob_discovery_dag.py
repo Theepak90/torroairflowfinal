@@ -133,7 +133,8 @@ def discover_azure_blobs(**context):
     
     for storage_config in AZURE_STORAGE_ACCOUNTS:
         account_name = storage_config["name"]
-        connection_string = storage_config["connection_string"]
+        auth_method = storage_config.get("auth_method", "connection_string")
+        connection_string = storage_config.get("connection_string", "")
         containers = storage_config["containers"]
         folders = storage_config.get("folders", [""])
         if not folders or folders == [""]:
@@ -143,10 +144,19 @@ def discover_azure_blobs(**context):
         data_source_type = storage_config.get("data_source_type", "unknown")
         file_extensions = storage_config.get("file_extensions")  # None = all files
         
-        logger.info('FN:discover_azure_blobs account_name:{}'.format(account_name))
+        logger.info('FN:discover_azure_blobs account_name:{} auth_method:{}'.format(account_name, auth_method))
         
         try:
-            blob_client = AzureBlobClient(connection_string)
+            # Initialize blob client based on authentication method
+            if auth_method == "service_principal":
+                blob_client = AzureBlobClient(
+                    account_name=account_name,
+                    client_id=storage_config.get("client_id", ""),
+                    client_secret=storage_config.get("client_secret", ""),
+                    tenant_id=storage_config.get("tenant_id", "")
+                )
+            else:
+                blob_client = AzureBlobClient(connection_string=connection_string)
             
             # If containers list is empty, scan all containers
             if not containers or len(containers) == 0:

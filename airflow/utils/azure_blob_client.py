@@ -1,4 +1,5 @@
 from azure.storage.blob import BlobServiceClient, ContentSettings
+from azure.identity import ClientSecretCredential
 from typing import List, Dict, Optional
 import logging
 
@@ -6,9 +7,35 @@ logger = logging.getLogger(__name__)
 
 
 class AzureBlobClient:
-    def __init__(self, connection_string: str):
-        self.connection_string = connection_string
-        self.blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+    def __init__(self, connection_string: str = None, account_name: str = None, 
+                 client_id: str = None, client_secret: str = None, tenant_id: str = None):
+        """
+        Initialize Azure Blob Client with either connection string or service principal
+        
+        Args:
+            connection_string: Azure storage connection string (legacy method)
+            account_name: Storage account name (for service principal)
+            client_id: Service principal client ID
+            client_secret: Service principal client secret
+            tenant_id: Azure AD tenant ID
+        """
+        if connection_string:
+            # Legacy: Use connection string
+            self.connection_string = connection_string
+            self.blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+            logger.info('FN:AzureBlobClient auth_method:connection_string')
+        elif account_name and client_id and client_secret and tenant_id:
+            # New: Use service principal
+            credential = ClientSecretCredential(
+                tenant_id=tenant_id,
+                client_id=client_id,
+                client_secret=client_secret
+            )
+            account_url = f"https://{account_name}.blob.core.windows.net"
+            self.blob_service_client = BlobServiceClient(account_url=account_url, credential=credential)
+            logger.info('FN:AzureBlobClient auth_method:service_principal account_name:{}'.format(account_name))
+        else:
+            raise ValueError("Either connection_string or (account_name, client_id, client_secret, tenant_id) must be provided")
     
     def list_containers(self) -> List[str]:
         """List all container names in the storage account"""
