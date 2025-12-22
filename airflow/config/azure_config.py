@@ -10,6 +10,13 @@ load_dotenv(dotenv_path=env_path)
 # Azure Authentication Method: "connection_string" or "service_principal"
 AZURE_AUTH_METHOD = os.getenv("AZURE_AUTH_METHOD", "connection_string")
 
+# Azure Storage Type: "blob" or "datalake"
+AZURE_STORAGE_TYPE = os.getenv("AZURE_STORAGE_TYPE", "blob")
+
+# Parse Data Lake Storage Gen2 ABFS paths if provided
+# Format: abfs://filesystem@account.dfs.core.windows.net/path
+AZURE_DATALAKE_PATHS = [p.strip() for p in os.getenv("AZURE_DATALAKE_PATHS", "").split(",") if p.strip()]
+
 AZURE_STORAGE_ACCOUNTS = [
     {
         "name": os.getenv("AZURE_STORAGE_ACCOUNT_NAME", "myaccount"),
@@ -19,8 +26,10 @@ AZURE_STORAGE_ACCOUNTS = [
         "client_secret": os.getenv("AZURE_CLIENT_SECRET", ""),
         "tenant_id": os.getenv("AZURE_TENANT_ID", ""),
         "auth_method": AZURE_AUTH_METHOD,  # "connection_string" or "service_principal"
+        "storage_type": AZURE_STORAGE_TYPE,  # "blob" or "datalake"
         "containers": [c.strip() for c in os.getenv("AZURE_CONTAINERS", "").split(",") if c.strip()],  # Empty = scan all containers
         "folders": [f.strip() for f in os.getenv("AZURE_FOLDERS", "").split(",") if f.strip()],  # Empty = scan root of containers
+        "datalake_paths": AZURE_DATALAKE_PATHS,  # ABFS paths for Data Lake Storage
         "environment": os.getenv("AZURE_ENVIRONMENT", "prod"),
         "env_type": os.getenv("AZURE_ENV_TYPE", "production"),
         "data_source_type": os.getenv("AZURE_DATA_SOURCE_TYPE", "credit_card"),

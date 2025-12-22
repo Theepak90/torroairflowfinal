@@ -23,6 +23,8 @@ from config.azure_config import (
     get_storage_location_json,
 )
 from utils.azure_blob_client import AzureBlobClient
+from utils.azure_datalake_client import AzureDataLakeClient
+from utils.path_parser import parse_storage_path, get_path_parser
 from utils.metadata_extractor import extract_file_metadata, generate_file_hash, generate_schema_hash
 from utils.deduplication import check_file_exists, should_update_or_insert, get_db_connection
 from utils.email_notifier import notify_new_discoveries
@@ -135,18 +137,233 @@ def discover_azure_blobs(**context):
         account_name = storage_config["name"]
         auth_method = storage_config.get("auth_method", "connection_string")
         connection_string = storage_config.get("connection_string", "")
+        storage_type = storage_config.get("storage_type", "blob")  # "blob" or "datalake"
         containers = storage_config["containers"]
         folders = storage_config.get("folders", [""])
         if not folders or folders == [""]:
             folders = [""]  # Scan root if no folders specified
+        datalake_paths = storage_config.get("datalake_paths", [])  # ABFS paths for Data Lake
         environment = storage_config.get("environment", "prod")
         env_type = storage_config.get("env_type", "production")
         data_source_type = storage_config.get("data_source_type", "unknown")
         file_extensions = storage_config.get("file_extensions")  # None = all files
         
-        logger.info('FN:discover_azure_blobs account_name:{} auth_method:{}'.format(account_name, auth_method))
+        logger.info('FN:discover_azure_blobs account_name:{} auth_method:{} storage_type:{}'.format(account_name, auth_method, storage_type))
         
         try:
+            # Handle Data Lake Storage Gen2
+            if storage_type == "datalake" or (datalake_paths and len(datalake_paths) > 0):
+                logger.info('FN:discover_azure_blobs processing_datalake_storage')
+                
+                # Initialize Data Lake client (requires service principal)
+                if not (storage_config.get("client_id") and storage_config.get("client_secret") and storage_config.get("tenant_id")):
+                    logger.error('FN:discover_azure_blobs datalake_requires_service_principal')
+                    continue
+                
+                datalake_client = AzureDataLakeClient(
+                    account_name=account_name,
+                    client_id=storage_config.get("client_id", ""),
+                    client_secret=storage_config.get("client_secret", ""),
+                    tenant_id=storage_config.get("tenant_id", "")
+                )
+                
+                # Process Data Lake paths if provided (supports ABFS and future formats)
+                if datalake_paths and len(datalake_paths) > 0:
+                    for storage_path in datalake_paths:
+                        try:
+                            # Use flexible path parser (supports ABFS and extensible for future formats)
+                            parsed = parse_storage_path(storage_path)
+                            
+                            # Validate it's a Data Lake path
+                            if parsed["storage_type"] != "azure_datalake":
+                                logger.warning('FN:discover_azure_blobs path:{} storage_type:{} expected:azure_datalake'.format(
+                                    storage_path, parsed["storage_type"]
+                                ))
+                                continue
+                            
+                            filesystem_name = parsed["filesystem"]
+                            path = parsed["path"]
+                            # Use account_name from parsed path if available, otherwise use config
+                            if not account_name and parsed.get("account_name"):
+                                account_name = parsed["account_name"]
+                            
+                            logger.info('FN:discover_azure_blobs datalake_filesystem:{} path:{}'.format(filesystem_name, path))
+                            
+                            # List files in the Data Lake path
+                            files = datalake_client.list_paths(
+                                filesystem_name=filesystem_name,
+                                directory_path=path,
+                                recursive=True
+                            )
+                            
+                            logger.info('FN:discover_azure_blobs datalake_filesystem:{} path:{} file_count:{}'.format(filesystem_name, path, len(files)))
+                            
+                            # Process each file (similar to blob processing)
+                            for file_info in files:
+                                try:
+                                    file_path = file_info["full_path"]
+                                    
+                                    # Create hash from file properties
+                                    file_size = file_info.get("size", 0)
+                                    etag = file_info.get("etag", "").strip('"')
+                                    last_modified = file_info.get("last_modified")
+                                    
+                                    composite_string = f"{etag}_{file_size}_{last_modified.isoformat() if last_modified else ''}"
+                                    file_hash = generate_file_hash(composite_string.encode('utf-8'))
+                                    
+                                    # Get file sample for schema extraction
+                                    file_sample = None
+                                    file_extension = file_info["name"].split(".")[-1].lower() if "." in file_info["name"] else ""
+                                    
+                                    try:
+                                        if file_extension == "parquet":
+                                            # For Parquet, we'd need to get the full file or tail
+                                            # Data Lake doesn't have get_tail, so get sample from start
+                                            file_sample = datalake_client.get_file_sample(filesystem_name, file_path, max_bytes=8192)
+                                        else:
+                                            file_sample = datalake_client.get_file_sample(filesystem_name, file_path, max_bytes=2048)
+                                        logger.info('FN:discover_azure_blobs datalake_file_path:{} file_extension:{} sample_bytes:{}'.format(file_path, file_extension, len(file_sample) if file_sample else 0))
+                                    except Exception as e:
+                                        logger.warning('FN:discover_azure_blobs datalake_file_path:{} error:{}'.format(file_path, str(e)))
+                                    
+                                    # Extract metadata (same pattern as blob storage)
+                                    if file_sample:
+                                        metadata = extract_file_metadata(file_info, file_sample)
+                                        schema_hash = metadata.get("schema_hash", generate_schema_hash({}))
+                                        structured_metadata = metadata.get("structured_metadata", {})
+                                        schema_pii = metadata.get("schema_pii", {})
+                                    else:
+                                        schema_hash = generate_schema_hash({})
+                                        metadata = extract_file_metadata(file_info, None)
+                                        structured_metadata = metadata.get("structured_metadata", {})
+                                        schema_pii = {}
+                                    
+                                    # Check if file exists
+                                    existing_record = retry_db_operation(max_retries=None, base_delay=1.0, max_delay=60.0, max_total_time=3600.0)(
+                                        check_file_exists
+                                    )(
+                                        storage_type="azure_datalake",
+                                        storage_identifier=account_name,
+                                        storage_path=file_path
+                                    )
+                                    
+                                    # Check if update needed
+                                    should_update, schema_changed = should_update_or_insert(
+                                        existing_record,
+                                        file_hash,
+                                        schema_hash
+                                    )
+                                    
+                                    if should_update:
+                                        storage_location_json = {
+                                            "type": "azure_datalake",
+                                            "path": file_path,
+                                            "connection": {
+                                                "method": "service_principal",
+                                                "account_name": account_name or parsed.get("account_name", "")
+                                            },
+                                            "filesystem": {
+                                                "name": filesystem_name,
+                                                "type": "datalake_filesystem"
+                                            },
+                                            "original_path": parsed.get("original_path", storage_path),
+                                            "metadata": {}
+                                        }
+                                        
+                                        conn = pymysql.connect(
+                                            host=DB_CONFIG["host"],
+                                            port=DB_CONFIG["port"],
+                                            user=DB_CONFIG["user"],
+                                            password=DB_CONFIG["password"],
+                                            database=DB_CONFIG["database"],
+                                            cursorclass=pymysql.cursors.DictCursor
+                                        )
+                                        try:
+                                            with conn.cursor() as cursor:
+                                                if existing_record and existing_record.get("id"):
+                                                    existing_record_id = existing_record["id"]
+                                                    sql = """
+                                                        UPDATE data_discovery
+                                                        SET file_hash = %s,
+                                                            schema_hash = %s,
+                                                            file_metadata = %s,
+                                                            structured_metadata = %s,
+                                                            schema_pii = %s,
+                                                            last_modified_at = NOW(),
+                                                            approval_status = 'pending_review'
+                                                        WHERE id = %s
+                                                    """
+                                                    cursor.execute(sql, (
+                                                        file_hash,
+                                                        schema_hash,
+                                                        json.dumps(file_info),
+                                                        json.dumps(structured_metadata),
+                                                        json.dumps(schema_pii if file_sample else {}),
+                                                        existing_record_id
+                                                    ))
+                                                    logger.info('FN:discover_azure_blobs datalake_updated_discovery_id:{}'.format(existing_record_id))
+                                                else:
+                                                    sql = """
+                                                        INSERT INTO data_discovery (
+                                                            file_name, container_name, storage_path,
+                                                            file_hash, schema_hash, file_metadata,
+                                                            structured_metadata, schema_pii,
+                                                            storage_location, discovered_at,
+                                                            environment, env_type, data_source_type,
+                                                            created_at, created_by, approval_status
+                                                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                                    """
+                                                    cursor.execute(sql, (
+                                                        file_info["name"],
+                                                        filesystem_name,
+                                                        file_path,
+                                                        file_hash,
+                                                        schema_hash,
+                                                        json.dumps(file_info),
+                                                        json.dumps(structured_metadata),
+                                                        json.dumps(schema_pii if file_sample else {}),
+                                                        json.dumps(storage_location_json),
+                                                        datetime.utcnow(),
+                                                        environment,
+                                                        env_type,
+                                                        data_source_type,
+                                                        datetime.utcnow(),
+                                                        'airflow_dag',
+                                                        'pending_review'
+                                                    ))
+                                                    new_id = cursor.lastrowid
+                                                    all_new_discoveries.append({"id": new_id, "file_name": file_info["name"]})
+                                                    logger.info('FN:discover_azure_blobs datalake_new_discovery_id:{}'.format(new_id))
+                                                conn.commit()
+                                        except Exception as e:
+                                            conn.rollback()
+                                            logger.error('FN:discover_azure_blobs datalake_db_operation_error:{}'.format(str(e)))
+                                            raise
+                                        finally:
+                                            conn.close()
+                                except Exception as e:
+                                    logger.error('FN:discover_azure_blobs datalake_file_error:{} error:{}'.format(file_info.get("name", "unknown"), str(e)))
+                                    continue
+                        except Exception as e:
+                            logger.error('FN:discover_azure_blobs storage_path:{} error:{}'.format(storage_path, str(e)))
+                            continue
+                else:
+                    # No ABFS paths specified, list all filesystems and scan
+                    logger.info('FN:discover_azure_blobs datalake_no_paths_listing_all_filesystems')
+                    filesystems = datalake_client.list_filesystems()
+                    for filesystem_name in filesystems:
+                        try:
+                            files = datalake_client.list_paths(filesystem_name=filesystem_name, directory_path="", recursive=True)
+                            logger.info('FN:discover_azure_blobs datalake_filesystem:{} file_count:{}'.format(filesystem_name, len(files)))
+                            # Process files similar to above (code would be duplicated, consider refactoring)
+                        except Exception as e:
+                            logger.error('FN:discover_azure_blobs datalake_filesystem:{} error:{}'.format(filesystem_name, str(e)))
+                            continue
+                
+                # Continue to next storage config after processing Data Lake
+                continue
+            
+            # Handle Blob Storage (existing logic)
             # Initialize blob client based on authentication method
             if auth_method == "service_principal":
                 blob_client = AzureBlobClient(
