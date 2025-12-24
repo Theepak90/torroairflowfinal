@@ -159,7 +159,7 @@ VITE_API_BASE_URL=http://127.0.0.1:5001
 npm run dev
 ```
 
-Frontend will run on `http://127.0.0.1:3000/airflow-fe//airflow-fe/`
+Frontend will run on `http://127.0.0.1:3000/airflow-fe/`
 
 ## Step 5: Airflow Setup
 
@@ -300,7 +300,7 @@ export AIRFLOW_HOME=$(pwd)
 airflow webserver --port 8080
 ```
 
-Airflow UI will be available at `http://127.0.0.1:8080/airflow//airflow/`
+Airflow UI will be available at `http://127.0.0.1:8080/airflow/`
 
 ## Step 6: Verify Installation
 
@@ -320,7 +320,7 @@ curl http://127.0.0.1:3000/airflow-fe/
 
 **Airflow:**
 ```bash
-curl http://127.0.0.1:8080/airflow//health
+curl http://127.0.0.1:8080/airflow/health
 ```
 
 ### 6.2 Test Manual Discovery
