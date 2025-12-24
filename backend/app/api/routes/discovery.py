@@ -173,9 +173,9 @@ def trigger_discovery():
         
         # Import discovery function
         from dotenv import load_dotenv
-        # Load .env from project root (not airflow directory)
-        project_root_env = os.path.join(project_root, '.env')
-        load_dotenv(project_root_env, override=True)
+        # Load .env from airflow directory
+        airflow_env = os.path.join(airflow_path, '.env')
+        load_dotenv(airflow_env, override=True)
         
         # Dynamic imports from airflow directory (added to sys.path above)
         # These imports are resolved at runtime after adding airflow_path to sys.path

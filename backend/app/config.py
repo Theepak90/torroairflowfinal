@@ -2,18 +2,18 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 
-# Load .env from project root (parent directory)
+# Load .env from backend directory
 # Clear any existing MySQL env vars first to ensure fresh load
 for key in list(os.environ.keys()):
     if key.startswith('MYSQL_'):
         del os.environ[key]
 
 # config.py is at: backend/app/config.py
-# Need to go: config.py -> app -> backend -> project_root
-# So: parent.parent.parent gets us to project root
+# Need to go: config.py -> app -> backend
+# So: parent.parent gets us to backend directory
 # Use resolve() to get absolute path
 config_file = Path(__file__).resolve()
-env_path = config_file.parent.parent.parent / '.env'
+env_path = config_file.parent.parent / '.env'
 load_dotenv(dotenv_path=env_path, override=True)
 
 

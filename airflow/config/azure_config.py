@@ -3,8 +3,10 @@ from typing import Dict
 from dotenv import load_dotenv
 from pathlib import Path
 
-# Load .env from project root (parent of airflow directory)
-env_path = Path(__file__).parent.parent.parent / '.env'
+# Load .env from airflow directory
+# config/azure_config.py is at: airflow/config/azure_config.py
+# Need to go: config -> airflow
+env_path = Path(__file__).parent.parent / '.env'
 load_dotenv(dotenv_path=env_path)
 
 # Azure Authentication Method: "connection_string" or "service_principal"

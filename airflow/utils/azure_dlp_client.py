@@ -6,9 +6,9 @@ from azure.core.credentials import AzureKeyCredential
 from azure.ai.textanalytics import TextAnalyticsClient
 from dotenv import load_dotenv
 
-# Load .env from project root (parent of airflow directory)
-# azure_dlp_client.py is in airflow/utils/, so we need to go up 3 levels to reach project root
-env_path = Path(__file__).parent.parent.parent / '.env'
+# Load .env from airflow directory
+# azure_dlp_client.py is in airflow/utils/, so we need to go up 2 levels to reach airflow directory
+env_path = Path(__file__).parent.parent / '.env'
 load_dotenv(dotenv_path=env_path)
 
 logger = logging.getLogger(__name__)
