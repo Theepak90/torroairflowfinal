@@ -159,7 +159,7 @@ VITE_API_BASE_URL=http://127.0.0.1:5001
 npm run dev
 ```
 
-Frontend will run on `http://127.0.0.1:3001`
+Frontend will run on `http://127.0.0.1:3000`
 
 ## Step 5: Airflow Setup
 
@@ -248,7 +248,7 @@ EMAIL_RECIPIENTS=your_email1@example.com,your_email2@example.com
 
 # Airflow Additional Configuration
 AIRFLOW_HOME=./airflow
-AIRFLOW_WEBSERVER_PORT=8081
+AIRFLOW_WEBSERVER_PORT=8080
 DB_RETRY_MAX_ATTEMPTS=20
 
 # Airflow Fernet Key for encryption (OPTIONAL, Airflow can generate automatically)
@@ -297,10 +297,10 @@ In another new terminal:
 cd airflow
 source venv/bin/activate
 export AIRFLOW_HOME=$(pwd)
-airflow webserver --port 8081
+airflow webserver --port 8080
 ```
 
-Airflow UI will be available at `http://127.0.0.1:8081`
+Airflow UI will be available at `http://127.0.0.1:8080`
 
 ## Step 6: Verify Installation
 
@@ -315,12 +315,12 @@ curl http://127.0.0.1:5001/api/health
 
 **Frontend:**
 ```bash
-curl http://127.0.0.1:3001
+curl http://127.0.0.1:3000
 ```
 
 **Airflow:**
 ```bash
-curl http://127.0.0.1:8081/health
+curl http://127.0.0.1:8080/health
 ```
 
 ### 6.2 Test Manual Discovery
@@ -331,7 +331,7 @@ curl -X POST http://127.0.0.1:5001/api/discovery/trigger
 
 ### 6.3 Check Airflow DAG
 
-1. Open `http://127.0.0.1:8081` in browser
+1. Open `http://127.0.0.1:8080` in browser
 2. Login with admin credentials
 3. Find `azure_blob_discovery` DAG
 4. Ensure it's **unpaused** (toggle switch should be ON)
