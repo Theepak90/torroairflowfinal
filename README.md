@@ -458,7 +458,5 @@ For issues or questions:
 3. Ensure all services are running
 4. Check database connectivity
 
-## License
 
-[Your License Here]
 
