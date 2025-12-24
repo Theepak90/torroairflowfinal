@@ -227,7 +227,7 @@ def detect_pii_in_column(column_name: str) -> Dict:
     if pii_types:
         logger.info('FN:detect_pii_in_column column_name:{} pattern_matching_detected:True types:{}'.format(column_name, pii_types))
     
-    return {
+        return {
         "pii_detected": len(pii_types) > 0,
         "pii_types": pii_types
-    }
+        }
