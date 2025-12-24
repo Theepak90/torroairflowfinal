@@ -50,7 +50,7 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Router>
+      <Router basename="/airflow-fe">
         <Routes>
           <Route path="/" element={<DataDiscoveryPage />} />
           <Route path="/discovery" element={<DataDiscoveryPage />} />

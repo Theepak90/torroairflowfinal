@@ -159,7 +159,7 @@ VITE_API_BASE_URL=http://127.0.0.1:5001
 npm run dev
 ```
 
-Frontend will run on `http://127.0.0.1:3000`
+Frontend will run on `http://127.0.0.1:3000/airflow-fe//airflow-fe/`
 
 ## Step 5: Airflow Setup
 
@@ -300,7 +300,7 @@ export AIRFLOW_HOME=$(pwd)
 airflow webserver --port 8080
 ```
 
-Airflow UI will be available at `http://127.0.0.1:8080`
+Airflow UI will be available at `http://127.0.0.1:8080/airflow//airflow/`
 
 ## Step 6: Verify Installation
 
@@ -315,12 +315,12 @@ curl http://127.0.0.1:5001/api/health
 
 **Frontend:**
 ```bash
-curl http://127.0.0.1:3000
+curl http://127.0.0.1:3000/airflow-fe/
 ```
 
 **Airflow:**
 ```bash
-curl http://127.0.0.1:8080/health
+curl http://127.0.0.1:8080/airflow//health
 ```
 
 ### 6.2 Test Manual Discovery
@@ -331,7 +331,7 @@ curl -X POST http://127.0.0.1:5001/api/discovery/trigger
 
 ### 6.3 Check Airflow DAG
 
-1. Open `http://127.0.0.1:8080` in browser
+1. Open `http://127.0.0.1:8080/airflow/` in browser
 2. Login with admin credentials
 3. Find `azure_blob_discovery` DAG
 4. Ensure it's **unpaused** (toggle switch should be ON)
