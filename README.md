@@ -23,10 +23,10 @@ torroupdatedairflow/
 
 ## Step 1: Clone Repository
 
-```bash
+   ```bash
 git clone https://github.com/Theepak90/torroairflowfinal.git
-cd torroupdatedairflow
-```
+   cd torroupdatedairflow
+   ```
 
 ## Step 2: Database Setup
 
@@ -62,31 +62,31 @@ EXIT;
 
 ### 2.3 Run Database Migration
 
-```bash
+   ```bash
 mysql -u root -p torro_discovery < database/migrations/data_discovery.sql
-```
+   ```
 
 ## Step 3: Backend Setup
 
 ### 3.1 Navigate to Backend Directory
 
-```bash
+   ```bash
 cd backend
 ```
 
 ### 3.2 Create Virtual Environment
 
-```bash
+   ```bash
 python3.11 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
+   ```
 
 ### 3.3 Install Dependencies
 
-```bash
+   ```bash
 pip install --upgrade pip
-pip install -r requirements.txt
-```
+   pip install -r requirements.txt
+   ```
 
 ### 3.4 Configure Environment Variables
 
@@ -123,9 +123,9 @@ BACKEND_PORT=5001
 
 ### 3.5 Start Backend Server
 
-```bash
-cd backend
-source venv/bin/activate
+   ```bash
+   cd backend
+   source venv/bin/activate
 python -m app.main
 ```
 
@@ -135,15 +135,15 @@ Backend will run on `http://127.0.0.1:5001`
 
 ### 4.1 Navigate to Frontend Directory
 
-```bash
-cd frontend
+   ```bash
+   cd frontend
 ```
 
 ### 4.2 Install Dependencies
 
 ```bash
-npm install
-```
+   npm install
+   ```
 
 ### 4.3 Configure API Base URL
 
@@ -349,7 +349,7 @@ Configuration file: `nginx/torro-reverse-proxy.conf`
 
 Generate SSL certificates and configure in Nginx:
 
-```bash
+   ```bash
 sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
     -keyout nginx/ssl/nginx-selfsigned.key \
     -out nginx/ssl/nginx-selfsigned.crt

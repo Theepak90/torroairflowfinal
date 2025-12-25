@@ -12,15 +12,15 @@ export default defineConfig(({ mode }) => {
   const basePath = process.env.VITE_BASE_PATH || '/airflow-fe/';
   
   return {
-    plugins: [react()],
+  plugins: [react()],
     base: basePath,
-    server: {
+  server: {
       host: '0.0.0.0', // Bind to all interfaces to accept connections from host IP
-      port: 3000,
-      proxy: {
-        '/api': {
+    port: 3000,
+    proxy: {
+      '/api': {
           target: apiBaseUrl,
-          changeOrigin: true,
+        changeOrigin: true,
           rewrite: (path) => path, // Keep /api prefix
         },
       },

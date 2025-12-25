@@ -8,8 +8,10 @@ const getApiBaseUrl = () => {
   if (import.meta.env.VITE_API_BASE_URL) {
     return import.meta.env.VITE_API_BASE_URL;
   }
-  // Default to relative path - nginx will proxy /api to backend
-  // This works with HTTPS on port 443 via nginx reverse proxy
+  // Use relative path - nginx will proxy /api to backend
+  // Relative paths work correctly when accessed through Nginx
+  // IMPORTANT: Access frontend via HTTPS (https://127.0.0.1/airflow-fe/)
+  // to avoid HTTP->HTTPS redirect issues with fetch()
   return '/api';
 };
 
