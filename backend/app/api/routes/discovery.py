@@ -192,6 +192,19 @@ def trigger_discovery():
         def run_discovery():
             """Run discovery in background thread"""
             try:
+                # Ensure airflow path is in sys.path for this thread
+                import sys
+                if airflow_path not in sys.path:
+                    sys.path.insert(0, airflow_path)
+                
+                # Re-import after ensuring path is set (for thread safety)
+                from config.azure_config import AZURE_STORAGE_ACCOUNTS, DB_CONFIG, get_storage_location_json  # type: ignore
+                from utils.azure_blob_client import AzureBlobClient  # type: ignore
+                from utils.azure_datalake_client import AzureDataLakeClient  # type: ignore
+                from utils.path_parser import parse_storage_path  # type: ignore
+                from utils.metadata_extractor import extract_file_metadata, generate_file_hash, generate_schema_hash  # type: ignore
+                from utils.deduplication import check_file_exists, should_update_or_insert  # type: ignore
+                
                 batch_start_time = datetime.utcnow()
                 discovery_batch_id = f"batch_{int(batch_start_time.timestamp())}"
                 run_id = f"manual_{int(batch_start_time.timestamp())}"
