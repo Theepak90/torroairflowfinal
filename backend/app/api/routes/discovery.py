@@ -1,6 +1,11 @@
 from flask import Blueprint, request, jsonify
 from app.services.discovery_service import DiscoveryService
 import logging
+import json
+import os
+import sys
+import threading
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +57,9 @@ def get_discoveries():
         }), 200
         
     except Exception as e:
-        logger.error('FN:get_discoveries page:{} size:{} error:{}'.format(page, size, str(e)))
+        page_val = page if 'page' in locals() else 'N/A'
+        size_val = size if 'size' in locals() else 'N/A'
+        logger.error(f'FN:get_discoveries page:{page_val} size:{size_val} error:{str(e)}')
         return jsonify({'error': str(e)}), 500
 
 
@@ -67,7 +74,7 @@ def get_discovery(discovery_id):
         return jsonify(discovery), 200
         
     except Exception as e:
-        logger.error('FN:get_discovery discovery_id:{} error:{}'.format(discovery_id, str(e)))
+        logger.error(f'FN:get_discovery discovery_id:{discovery_id} error:{str(e)}')
         return jsonify({'error': str(e)}), 500
 
 
@@ -100,7 +107,8 @@ def approve_discovery(discovery_id):
     except ValueError as e:
         return jsonify({'error': str(e)}), 404
     except Exception as e:
-        logger.error('FN:approve_discovery discovery_id:{} approved_by:{} error:{}'.format(discovery_id, data.get('approved_by', 'N/A'), str(e)))
+        approved_by_val = data.get('approved_by', 'N/A') if 'data' in locals() else 'N/A'
+        logger.error(f'FN:approve_discovery discovery_id:{discovery_id} approved_by:{approved_by_val} error:{str(e)}')
         return jsonify({'error': str(e)}), 500
 
 
@@ -134,7 +142,8 @@ def reject_discovery(discovery_id):
     except ValueError as e:
         return jsonify({'error': str(e)}), 404
     except Exception as e:
-        logger.error('FN:reject_discovery discovery_id:{} rejected_by:{} error:{}'.format(discovery_id, data.get('rejected_by', 'N/A'), str(e)))
+        rejected_by_val = data.get('rejected_by', 'N/A') if 'data' in locals() else 'N/A'
+        logger.error(f'FN:reject_discovery discovery_id:{discovery_id} rejected_by:{rejected_by_val} error:{str(e)}')
         return jsonify({'error': str(e)}), 500
 
 
@@ -144,7 +153,7 @@ def get_stats():
         stats = DiscoveryService.get_summary_stats()
         return jsonify(stats), 200
     except Exception as e:
-        logger.error('FN:get_stats error:{}'.format(str(e)))
+        logger.error(f'FN:get_stats error:{str(e)}')
         return jsonify({'error': str(e)}), 500
 
 
@@ -155,10 +164,6 @@ def trigger_discovery():
     This scans Azure Blob Storage and discovers new/updated files
     """
     try:
-        import os
-        import sys
-        import threading
-        
         # Get the project root directory (parent of backend)
         # File is at: backend/app/api/routes/discovery.py
         # Need to go: routes -> api -> app -> backend -> project_root
@@ -241,8 +246,6 @@ def trigger_discovery():
             from utils.metadata_extractor import extract_file_metadata, generate_file_hash, generate_schema_hash  # type: ignore
             from utils.deduplication import check_file_exists, should_update_or_insert  # type: ignore
             import pymysql
-            import json
-            from datetime import datetime
         except ImportError as e:
             error_msg = f'Failed to import airflow modules: {str(e)}. Check if airflow directory exists and dependencies are installed.'
             logger.error(f'FN:trigger_discovery import_error: {error_msg}')
@@ -253,7 +256,6 @@ def trigger_discovery():
             """Run discovery in background thread"""
             try:
                 # Ensure airflow path is in sys.path for this thread
-                import sys
                 if airflow_path not in sys.path:
                     sys.path.insert(0, airflow_path)
                 
@@ -311,9 +313,7 @@ def trigger_discovery():
                                         
                                         # Validate it's a Data Lake path
                                         if parsed["storage_type"] != "azure_datalake":
-                                            logger.warning('FN:trigger_discovery path:{} storage_type:{} expected:azure_datalake'.format(
-                                                storage_path, parsed["storage_type"]
-                                            ))
+                                            logger.warning(f'FN:trigger_discovery path:{storage_path} storage_type:{parsed["storage_type"]} expected:azure_datalake')
                                             continue
                                         
                                         filesystem_name = parsed["filesystem"]
@@ -322,7 +322,7 @@ def trigger_discovery():
                                         if not account_name and parsed.get("account_name"):
                                             account_name = parsed["account_name"]
                                         
-                                        logger.info('FN:trigger_discovery datalake_filesystem:{} path:{}'.format(filesystem_name, path))
+                                        logger.info(f'FN:trigger_discovery datalake_filesystem:{filesystem_name} path:{path}')
                                         
                                         # List files in the Data Lake path
                                         files = datalake_client.list_paths(
@@ -331,7 +331,7 @@ def trigger_discovery():
                                             recursive=True
                                         )
                                         
-                                        logger.info('FN:trigger_discovery datalake_filesystem:{} path:{} file_count:{}'.format(filesystem_name, path, len(files)))
+                                        logger.info(f'FN:trigger_discovery datalake_filesystem:{filesystem_name} path:{path} file_count:{len(files)}')
                                         
                                         # Process each file (similar to blob processing)
                                         for file_info in files:
@@ -550,14 +550,14 @@ def trigger_discovery():
                                                             conn.commit()
                                                     except Exception as e:
                                                         conn.rollback()
-                                                        logger.error('FN:trigger_discovery datalake_db_error:{}'.format(str(e)))
+                                                        logger.error(f'FN:trigger_discovery datalake_db_error:{str(e)}')
                                                     finally:
                                                         conn.close()
                                             except Exception as e:
-                                                logger.error('FN:trigger_discovery datalake_file_error:{}'.format(str(e)))
+                                                logger.error(f'FN:trigger_discovery datalake_file_error:{str(e)}')
                                                 continue
                                     except Exception as e:
-                                        logger.error('FN:trigger_discovery storage_path:{} error:{}'.format(storage_path, str(e)))
+                                        logger.error(f'FN:trigger_discovery storage_path:{storage_path} error:{str(e)}')
                                         continue
                             
                             # Continue to next storage config after processing Data Lake
@@ -579,7 +579,7 @@ def trigger_discovery():
                         if not containers or len(containers) == 0:
                             logger.info('FN:trigger_discovery containers_empty_scanning_all')
                             containers = blob_client.list_containers()
-                            logger.info('FN:trigger_discovery found_containers:{}'.format(len(containers)))
+                            logger.info(f'FN:trigger_discovery found_containers:{len(containers)}')
                         
                         for container_name in containers:
                             for folder_path in folders:
@@ -802,5 +802,5 @@ def trigger_discovery():
         }), 202  # 202 Accepted - request accepted but processing not complete
         
     except Exception as e:
-        logger.error('FN:trigger_discovery error:{}'.format(str(e)))
+        logger.error(f'FN:trigger_discovery error:{str(e)}')
         return jsonify({'error': str(e)}), 500

@@ -126,10 +126,15 @@ BACKEND_PORT=5001
    ```bash
    cd backend
    source venv/bin/activate
-python -m app.main
+   PYTHONPATH=. python app/main.py
 ```
 
 Backend will run on `http://127.0.0.1:5001`
+
+**Note:** For production, use Gunicorn:
+```bash
+gunicorn -w 4 -b 0.0.0.0:5001 'app.main:create_app("production")'
+```
 
 ## Step 4: Frontend Setup
 
@@ -326,7 +331,21 @@ curl http://127.0.0.1:8080/airflow/health
 ### 6.2 Test Manual Discovery
 
 ```bash
-curl -X POST http://127.0.0.1:5001/api/discovery/trigger
+# Direct endpoint
+curl -X POST http://127.0.0.1:5001/api/discovery/trigger \
+     -H "Content-Type: application/json" \
+     -d '{}'
+
+# Through NGINX (if configured)
+curl -X POST https://localhost/airflow-be/api/discovery/trigger \
+     -H "Content-Type: application/json" \
+     -d '{}' -k
+
+# Expected response (202 Accepted):
+# {
+#   "message": "Discovery triggered successfully",
+#   "status": "running"
+# }
 ```
 
 ### 6.3 Check Airflow DAG
@@ -433,15 +452,29 @@ lsof -ti:5001 | xargs kill -9
 
 - `GET /api/health` - Health check
 - `GET /api/discovery` - Get all discoveries (with pagination)
+- `GET /api/discovery/<id>` - Get single discovery by ID
 - `GET /api/discovery/stats` - Get discovery statistics
-- `POST /api/discovery/trigger` - Trigger manual discovery
+- `POST /api/discovery/trigger` - Trigger manual discovery scan (async)
+- `PUT /api/discovery/<id>/approve` - Approve a discovery
+- `PUT /api/discovery/<id>/reject` - Reject a discovery
 
 ### Query Parameters
 
-- `page` - Page number (default: 0)
-- `size` - Page size (default: 50)
-- `status` - Filter by approval status (pending_review, approved, rejected)
-- `storage_type` - Filter by storage type (azure_blob, azure_datalake)
+- `page` - Page number (default: 0, must be non-negative)
+- `size` - Page size (default: 50, max: 100)
+- `status` - Filter by status (pending, approved, rejected)
+- `environment` - Filter by environment (prod, dev, test)
+- `data_source_type` - Filter by data source type
+- `search` - Search in file names and paths
+
+### Trigger Endpoint
+
+The trigger endpoint (`POST /api/discovery/trigger`) runs discovery asynchronously:
+- Returns immediately with `202 Accepted` status
+- Runs discovery in background thread
+- Scans Azure Blob Storage and Data Lake Storage Gen2
+- Updates database with new/updated discoveries
+- Supports both direct endpoint and NGINX proxy routes
 
 ## DAG Schedule
 
