@@ -165,31 +165,51 @@ def trigger_discovery():
         current_file = os.path.abspath(__file__)
         backend_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
         project_root = os.path.dirname(backend_path)
+        cwd = os.getcwd()
         
         # Try multiple possible locations for airflow directory
-        possible_airflow_paths = [
+        possible_airflow_paths = []
+        
+        # Check environment variable first (highest priority)
+        if os.getenv('AIRFLOW_PATH'):
+            possible_airflow_paths.append(os.getenv('AIRFLOW_PATH'))
+        
+        # Common Docker/container paths
+        possible_airflow_paths.extend([
+            '/app/airflow',  # Docker common location
+            '/airflow',  # Direct root airflow
+            os.path.join('/app', 'airflow'),  # Alternative Docker path
+        ])
+        
+        # Project structure paths
+        possible_airflow_paths.extend([
             os.path.join(project_root, 'airflow'),  # Standard: project_root/airflow
             os.path.join(backend_path, '..', 'airflow'),  # Alternative: backend/../airflow
             os.path.join(os.path.dirname(backend_path), 'airflow'),  # If backend is nested differently
-            '/app/airflow',  # Docker/common location
-            os.path.join(os.getcwd(), 'airflow'),  # Relative to current working directory
-        ]
+            os.path.join(cwd, 'airflow'),  # Relative to current working directory
+            os.path.join(cwd, '..', 'airflow'),  # Parent of CWD
+        ])
         
-        # Also check if AIRFLOW_PATH environment variable is set
-        if os.getenv('AIRFLOW_PATH'):
-            possible_airflow_paths.insert(0, os.getenv('AIRFLOW_PATH'))
-        
-        airflow_path = None
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_paths = []
         for path in possible_airflow_paths:
             abs_path = os.path.abspath(path)
-            if os.path.exists(abs_path) and os.path.isdir(abs_path):
-                airflow_path = abs_path
+            if abs_path not in seen:
+                seen.add(abs_path)
+                unique_paths.append(abs_path)
+        
+        airflow_path = None
+        for path in unique_paths:
+            if os.path.exists(path) and os.path.isdir(path):
+                airflow_path = path
                 logger.info(f'FN:trigger_discovery airflow_path_found: {airflow_path}')
                 break
         
         # Validate paths exist
         if not airflow_path:
-            error_msg = f'Airflow directory not found. Tried: {", ".join([os.path.abspath(p) for p in possible_airflow_paths[:3]])}. Current file: {current_file}, Backend path: {backend_path}, Project root: {project_root}, CWD: {os.getcwd()}. Set AIRFLOW_PATH environment variable to specify custom location.'
+            tried_paths = ", ".join(unique_paths[:5])  # Show first 5 paths tried
+            error_msg = f'Airflow directory not found. Tried: {tried_paths}. Current file: {current_file[:100]}, Backend path: {backend_path[:100]}, Project root: {project_root[:100]}, CWD: {cwd[:100]}. Set AIRFLOW_PATH environment variable to specify custom location.'
             logger.error(f'FN:trigger_discovery path_error: {error_msg}')
             return jsonify({'error': error_msg}), 500
         
@@ -199,7 +219,7 @@ def trigger_discovery():
         
         # Import discovery function
         try:
-        from dotenv import load_dotenv
+            from dotenv import load_dotenv
         except ImportError as e:
             error_msg = f'Failed to import dotenv: {str(e)}. Install with: pip install python-dotenv'
             logger.error(f'FN:trigger_discovery import_error: {error_msg}')
@@ -220,9 +240,9 @@ def trigger_discovery():
             from utils.path_parser import parse_storage_path  # type: ignore
             from utils.metadata_extractor import extract_file_metadata, generate_file_hash, generate_schema_hash  # type: ignore
             from utils.deduplication import check_file_exists, should_update_or_insert  # type: ignore
-        import pymysql
-        import json
-        from datetime import datetime
+            import pymysql
+            import json
+            from datetime import datetime
         except ImportError as e:
             error_msg = f'Failed to import airflow modules: {str(e)}. Check if airflow directory exists and dependencies are installed.'
             logger.error(f'FN:trigger_discovery import_error: {error_msg}')
@@ -366,7 +386,36 @@ def trigger_discovery():
                                                     schema_hash = metadata.get("schema_hash", generate_schema_hash({}))
                                                 else:
                                                     schema_hash = generate_schema_hash({})
-                                                    metadata = extract_file_metadata(file_info, None)
+                                                    metadata = {
+                                                        "file_metadata": {
+                                                            "basic": {
+                                                                "name": file_info["name"],
+                                                                "extension": "." + file_info["name"].split(".")[-1] if "." in file_info["name"] else "",
+                                                                "format": file_extension,
+                                                                "size_bytes": file_size,
+                                                                "content_type": file_info.get("content_type", "application/octet-stream"),
+                                                                "mime_type": file_info.get("content_type", "application/octet-stream")
+                                                            },
+                                                            "hash": {
+                                                                "algorithm": "shake128_etag_composite",
+                                                                "value": file_hash,
+                                                                "computed_at": datetime.utcnow().isoformat() + "Z",
+                                                                "source": "etag_composite"
+                                                            },
+                                                            "timestamps": {
+                                                                "created_at": file_info.get("created_at").isoformat() if file_info.get("created_at") else None,
+                                                                "last_modified": last_modified.isoformat() if last_modified else None
+                                                            }
+                                                        },
+                                                        "schema_json": {},
+                                                        "schema_hash": schema_hash,
+                                                        "file_hash": file_hash
+                                                    }
+                                                
+                                                if "file_hash" not in metadata:
+                                                    metadata["file_hash"] = file_hash
+                                                
+                                                file_metadata = metadata.get("file_metadata")
                                                 
                                                 # Check if update needed
                                                 should_update, schema_changed = should_update_or_insert(
@@ -402,55 +451,102 @@ def trigger_discovery():
                                                     try:
                                                         with conn.cursor() as cursor:
                                                             if existing_record and existing_record.get("id"):
-                                                                sql = """
-                                                                    UPDATE data_discovery
-                                                                    SET file_hash = %s,
-                                                                        schema_hash = %s,
-                                                                        file_metadata = %s,
-                                                                        structured_metadata = %s,
-                                                                        schema_pii = %s,
-                                                                        last_modified_at = NOW()
-                                                                    WHERE id = %s
-                                                                """
-                                                                cursor.execute(sql, (
-                                                                    file_hash,
-                                                                    schema_hash,
-                                                                    json.dumps(file_info),
-                                                                    json.dumps(metadata.get("structured_metadata", {})),
-                                                                    json.dumps(metadata.get("schema_pii", {})),
-                                                                    existing_record["id"]
-                                                                ))
+                                                                # Check if schema changed
+                                                                existing_schema_hash = existing_record.get("schema_hash")
+                                                                schema_changed = (existing_schema_hash != schema_hash)
+                                                                
+                                                                if schema_changed:
+                                                                    sql = """
+                                                                        UPDATE data_discovery
+                                                                        SET file_metadata = %s,
+                                                                            schema_json = %s,
+                                                                            schema_hash = %s,
+                                                                            storage_metadata = %s,
+                                                                            storage_data_metadata = %s,
+                                                                            discovery_info = %s,
+                                                                            last_checked_at = NOW(),
+                                                                            updated_at = NOW()
+                                                                        WHERE id = %s
+                                                                    """
+                                                                    discovery_info = {
+                                                                        "batch": {
+                                                                            "id": discovery_batch_id,
+                                                                            "started_at": batch_start_time.isoformat() + "Z"
+                                                                        },
+                                                                        "source": {
+                                                                            "type": "manual_trigger",
+                                                                            "name": "api_trigger",
+                                                                            "run_id": run_id
+                                                                        },
+                                                                        "scan": {
+                                                                            "filesystem": filesystem_name,
+                                                                            "path": path
+                                                                        }
+                                                                    }
+                                                                    cursor.execute(sql, (
+                                                                        json.dumps(file_metadata),
+                                                                        json.dumps(metadata.get("schema_json", {})),
+                                                                        schema_hash,
+                                                                        json.dumps(metadata.get("storage_metadata", {})),
+                                                                        json.dumps(metadata.get("structured_metadata", {})),
+                                                                        json.dumps(discovery_info),
+                                                                        existing_record["id"]
+                                                                    ))
+                                                                else:
+                                                                    sql = """
+                                                                        UPDATE data_discovery
+                                                                        SET last_checked_at = NOW()
+                                                                        WHERE id = %s
+                                                                    """
+                                                                    cursor.execute(sql, (existing_record["id"],))
                                                             else:
                                                                 sql = """
                                                                     INSERT INTO data_discovery (
-                                                                        file_name, container_name, storage_path,
-                                                                        file_hash, schema_hash, file_metadata,
-                                                                        structured_metadata, schema_pii,
-                                                                        storage_location, discovered_at,
-                                                                        environment, env_type, data_source_type,
-                                                                        created_at, created_by, approval_status
-                                                                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                                                        storage_location, file_metadata, schema_json, schema_hash,
+                                                                        discovered_at, status, approval_status, is_visible, is_active,
+                                                                        environment, env_type, data_source_type, folder_path,
+                                                                        storage_metadata, storage_data_metadata, discovery_info,
+                                                                        created_by
+                                                                    ) VALUES (
+                                                                        %s, %s, %s, %s,
+                                                                        NOW(), 'pending', 'pending_review', TRUE, TRUE,
+                                                                        %s, %s, %s, %s, %s, %s, %s, 'api_trigger'
+                                                                    )
                                                                 """
+                                                                discovery_info = {
+                                                                    "batch": {
+                                                                        "id": discovery_batch_id,
+                                                                        "started_at": batch_start_time.isoformat() + "Z"
+                                                                    },
+                                                                    "source": {
+                                                                        "type": "manual_trigger",
+                                                                        "name": "api_trigger",
+                                                                        "run_id": run_id
+                                                                    },
+                                                                    "scan": {
+                                                                        "filesystem": filesystem_name,
+                                                                        "path": path
+                                                                    }
+                                                                }
                                                                 cursor.execute(sql, (
-                                                                    file_info["name"],
-                                                                    filesystem_name,
-                                                                    file_path,
-                                                                    file_hash,
-                                                                    schema_hash,
-                                                                    json.dumps(file_info),
-                                                                    json.dumps(metadata.get("structured_metadata", {})),
-                                                                    json.dumps(metadata.get("schema_pii", {})),
                                                                     json.dumps(storage_location_json),
-                                                                    datetime.utcnow(),
+                                                                    json.dumps(file_metadata),
+                                                                    json.dumps(metadata.get("schema_json", {})),
+                                                                    schema_hash,
                                                                     environment,
                                                                     env_type,
                                                                     data_source_type,
-                                                                    datetime.utcnow(),
-                                                                    'manual_trigger',
-                                                                    'pending_review'
+                                                                    path,
+                                                                    json.dumps(metadata.get("storage_metadata", {})),
+                                                                    json.dumps(metadata.get("structured_metadata", {})),
+                                                                    json.dumps(discovery_info),
                                                                 ))
                                                                 new_id = cursor.lastrowid
-                                                                all_new_discoveries.append({"id": new_id, "file_name": file_info["name"]})
+                                                                all_new_discoveries.append({
+                                                                    "id": new_id,
+                                                                    "file_name": file_info["name"],
+                                                                    "storage_path": file_path
+                                                                })
                                                             conn.commit()
                                                     except Exception as e:
                                                         conn.rollback()
