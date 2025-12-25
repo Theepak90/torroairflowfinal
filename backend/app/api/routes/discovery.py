@@ -220,9 +220,9 @@ def trigger_discovery():
             from utils.path_parser import parse_storage_path  # type: ignore
             from utils.metadata_extractor import extract_file_metadata, generate_file_hash, generate_schema_hash  # type: ignore
             from utils.deduplication import check_file_exists, should_update_or_insert  # type: ignore
-        import pymysql
-        import json
-        from datetime import datetime
+            import pymysql
+            import json
+            from datetime import datetime
         except ImportError as e:
             error_msg = f'Failed to import airflow modules: {str(e)}. Check if airflow directory exists and dependencies are installed.'
             logger.error(f'FN:trigger_discovery import_error: {error_msg}')
