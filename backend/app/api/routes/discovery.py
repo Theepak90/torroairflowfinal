@@ -181,6 +181,7 @@ def trigger_discovery():
         
         # Common Docker/container paths
         possible_airflow_paths.extend([
+            '/opt/airflow',  # Standard Airflow container path (MOST COMMON IN DOCKER)
             '/app/airflow',  # Docker common location
             '/airflow',  # Direct root airflow
             os.path.join('/app', 'airflow'),  # Alternative Docker path
@@ -214,7 +215,7 @@ def trigger_discovery():
         # Validate paths exist
         if not airflow_path:
             tried_paths = ", ".join(unique_paths[:5])  # Show first 5 paths tried
-            error_msg = f'Airflow directory not found. Tried: {tried_paths}. Current file: {current_file[:100]}, Backend path: {backend_path[:100]}, Project root: {project_root[:100]}, CWD: {cwd[:100]}. Set AIRFLOW_PATH environment variable to specify custom location.'
+            error_msg = f'Airflow directory not found. Tried: {tried_paths}. Current file: {current_file[:100]}, Backend path: {backend_path[:100]}, Project root: {project_root[:100]}, CWD: {cwd[:100]}. Set AIRFLOW_PATH environment variable to specify custom location. For Docker containers, ensure the Airflow directory is mounted into the backend container or set AIRFLOW_PATH=/opt/airflow.'
             logger.error(f'FN:trigger_discovery path_error: {error_msg}')
             return jsonify({'error': error_msg}), 500
         
