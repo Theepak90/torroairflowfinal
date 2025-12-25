@@ -199,7 +199,7 @@ def trigger_discovery():
         
         # Import discovery function
         try:
-        from dotenv import load_dotenv
+            from dotenv import load_dotenv
         except ImportError as e:
             error_msg = f'Failed to import dotenv: {str(e)}. Install with: pip install python-dotenv'
             logger.error(f'FN:trigger_discovery import_error: {error_msg}')
