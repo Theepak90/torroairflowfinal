@@ -13,7 +13,8 @@ load_dotenv(dotenv_path=env_path)
 AZURE_AUTH_METHOD = os.getenv("AZURE_AUTH_METHOD", "connection_string")
 
 # Azure Storage Type: "blob" or "datalake"
-AZURE_STORAGE_TYPE = os.getenv("AZURE_STORAGE_TYPE", "datalake")
+# Default to "blob" if not set (Data Lake commented out in .env)
+AZURE_STORAGE_TYPE = os.getenv("AZURE_STORAGE_TYPE", "blob")
 
 # Parse Data Lake Storage Gen2 ABFS paths if provided
 # Format: abfs://filesystem@account.dfs.core.windows.net/path
