@@ -165,11 +165,31 @@ def trigger_discovery():
         current_file = os.path.abspath(__file__)
         backend_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
         project_root = os.path.dirname(backend_path)
-        airflow_path = os.path.join(project_root, 'airflow')
+        
+        # Try multiple possible locations for airflow directory
+        possible_airflow_paths = [
+            os.path.join(project_root, 'airflow'),  # Standard: project_root/airflow
+            os.path.join(backend_path, '..', 'airflow'),  # Alternative: backend/../airflow
+            os.path.join(os.path.dirname(backend_path), 'airflow'),  # If backend is nested differently
+            '/app/airflow',  # Docker/common location
+            os.path.join(os.getcwd(), 'airflow'),  # Relative to current working directory
+        ]
+        
+        # Also check if AIRFLOW_PATH environment variable is set
+        if os.getenv('AIRFLOW_PATH'):
+            possible_airflow_paths.insert(0, os.getenv('AIRFLOW_PATH'))
+        
+        airflow_path = None
+        for path in possible_airflow_paths:
+            abs_path = os.path.abspath(path)
+            if os.path.exists(abs_path) and os.path.isdir(abs_path):
+                airflow_path = abs_path
+                logger.info(f'FN:trigger_discovery airflow_path_found: {airflow_path}')
+                break
         
         # Validate paths exist
-        if not os.path.exists(airflow_path):
-            error_msg = f'Airflow directory not found at: {airflow_path}. Current file: {current_file}, Backend path: {backend_path}, Project root: {project_root}'
+        if not airflow_path:
+            error_msg = f'Airflow directory not found. Tried: {", ".join([os.path.abspath(p) for p in possible_airflow_paths[:3]])}. Current file: {current_file}, Backend path: {backend_path}, Project root: {project_root}, CWD: {os.getcwd()}. Set AIRFLOW_PATH environment variable to specify custom location.'
             logger.error(f'FN:trigger_discovery path_error: {error_msg}')
             return jsonify({'error': error_msg}), 500
         
@@ -179,7 +199,7 @@ def trigger_discovery():
         
         # Import discovery function
         try:
-            from dotenv import load_dotenv
+        from dotenv import load_dotenv
         except ImportError as e:
             error_msg = f'Failed to import dotenv: {str(e)}. Install with: pip install python-dotenv'
             logger.error(f'FN:trigger_discovery import_error: {error_msg}')
@@ -200,9 +220,9 @@ def trigger_discovery():
             from utils.path_parser import parse_storage_path  # type: ignore
             from utils.metadata_extractor import extract_file_metadata, generate_file_hash, generate_schema_hash  # type: ignore
             from utils.deduplication import check_file_exists, should_update_or_insert  # type: ignore
-            import pymysql
-            import json
-            from datetime import datetime
+        import pymysql
+        import json
+        from datetime import datetime
         except ImportError as e:
             error_msg = f'Failed to import airflow modules: {str(e)}. Check if airflow directory exists and dependencies are installed.'
             logger.error(f'FN:trigger_discovery import_error: {error_msg}')
