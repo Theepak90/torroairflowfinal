@@ -167,27 +167,47 @@ def trigger_discovery():
         project_root = os.path.dirname(backend_path)
         airflow_path = os.path.join(project_root, 'airflow')
         
+        # Validate paths exist
+        if not os.path.exists(airflow_path):
+            error_msg = f'Airflow directory not found at: {airflow_path}. Current file: {current_file}, Backend path: {backend_path}, Project root: {project_root}'
+            logger.error(f'FN:trigger_discovery path_error: {error_msg}')
+            return jsonify({'error': error_msg}), 500
+        
         # Add airflow to path (must be first for imports to work)
         if airflow_path not in sys.path:
             sys.path.insert(0, airflow_path)
         
         # Import discovery function
-        from dotenv import load_dotenv
+        try:
+            from dotenv import load_dotenv
+        except ImportError as e:
+            error_msg = f'Failed to import dotenv: {str(e)}. Install with: pip install python-dotenv'
+            logger.error(f'FN:trigger_discovery import_error: {error_msg}')
+            return jsonify({'error': error_msg}), 500
+        
         # Load .env from airflow directory
         airflow_env = os.path.join(airflow_path, '.env')
+        if not os.path.exists(airflow_env):
+            logger.warning(f'FN:trigger_discovery env_file_not_found: {airflow_env}')
         load_dotenv(airflow_env, override=True)
         
         # Dynamic imports from airflow directory (added to sys.path above)
         # These imports are resolved at runtime after adding airflow_path to sys.path
-        from config.azure_config import AZURE_STORAGE_ACCOUNTS, DB_CONFIG, get_storage_location_json  # type: ignore
-        from utils.azure_blob_client import AzureBlobClient  # type: ignore
-        from utils.azure_datalake_client import AzureDataLakeClient  # type: ignore
-        from utils.path_parser import parse_storage_path  # type: ignore
-        from utils.metadata_extractor import extract_file_metadata, generate_file_hash, generate_schema_hash  # type: ignore
-        from utils.deduplication import check_file_exists, should_update_or_insert  # type: ignore
-        import pymysql
-        import json
-        from datetime import datetime
+        try:
+            from config.azure_config import AZURE_STORAGE_ACCOUNTS, DB_CONFIG, get_storage_location_json  # type: ignore
+            from utils.azure_blob_client import AzureBlobClient  # type: ignore
+            from utils.azure_datalake_client import AzureDataLakeClient  # type: ignore
+            from utils.path_parser import parse_storage_path  # type: ignore
+            from utils.metadata_extractor import extract_file_metadata, generate_file_hash, generate_schema_hash  # type: ignore
+            from utils.deduplication import check_file_exists, should_update_or_insert  # type: ignore
+            import pymysql
+            import json
+            from datetime import datetime
+        except ImportError as e:
+            error_msg = f'Failed to import airflow modules: {str(e)}. Check if airflow directory exists and dependencies are installed.'
+            logger.error(f'FN:trigger_discovery import_error: {error_msg}')
+            logger.error(f'FN:trigger_discovery airflow_path: {airflow_path}, sys.path: {sys.path[:3]}')
+            return jsonify({'error': error_msg}), 500
         
         def run_discovery():
             """Run discovery in background thread"""
