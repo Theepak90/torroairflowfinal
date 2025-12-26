@@ -2,12 +2,6 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 
-# Load .env from backend directory
-# Clear any existing MySQL env vars first to ensure fresh load
-for key in list(os.environ.keys()):
-    if key.startswith('MYSQL_'):
-        del os.environ[key]
-
 # config.py is at: backend/app/config.py
 # Need to go: config.py -> app -> backend
 # So: parent.parent gets us to backend directory
@@ -30,16 +24,25 @@ if 'TMPDIR' not in os.environ:
         os.environ['TMPDIR'] = tempfile.gettempdir()
 
 
+def _get_int_env(key: str, default: str) -> int:
+    """Safely get integer from environment variable with fallback to default"""
+    try:
+        return int(os.getenv(key, default))
+    except (ValueError, TypeError):
+        return int(default)
+
+
 class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
     
+    # MySQL configuration
     MYSQL_HOST = os.getenv('MYSQL_HOST', '127.0.0.1')
-    MYSQL_PORT = int(os.getenv('MYSQL_PORT', '3306'))
+    MYSQL_PORT = _get_int_env('MYSQL_PORT', '3306')
     MYSQL_USER = os.getenv('MYSQL_USER', 'root')
     MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD', '')
     MYSQL_DATABASE = os.getenv('MYSQL_DATABASE', 'torro_discovery')
     
-    # CORS origins - use environment variable or default to allow all (for Nginx proxy)
+    # CORS origins - use environment variable or default to allow all
     cors_origins_str = os.getenv('CORS_ORIGINS', '*')
     CORS_ORIGINS = [origin.strip() for origin in cors_origins_str.split(',')] if cors_origins_str != '*' else ['*']
     
@@ -47,12 +50,12 @@ class Config:
     MAX_PAGE_SIZE = 100
     
     # MySQL Connection Pool Settings
-    DB_POOL_MIN = int(os.getenv('DB_POOL_MIN', '5'))  # Minimum connections in pool
-    DB_POOL_MAX = int(os.getenv('DB_POOL_MAX', '20'))  # Maximum connections in pool
-    DB_POOL_RECYCLE = int(os.getenv('DB_POOL_RECYCLE', '3600'))  # Recycle connections after 1 hour
+    DB_POOL_MIN = _get_int_env('DB_POOL_MIN', '5')  # Minimum connections in pool
+    DB_POOL_MAX = _get_int_env('DB_POOL_MAX', '20')  # Maximum connections in pool
+    DB_POOL_RECYCLE = _get_int_env('DB_POOL_RECYCLE', '3600')  # Recycle connections after 1 hour
     
     # Backend Server Configuration
-    BACKEND_PORT = int(os.getenv('BACKEND_PORT', '5001'))  # Backend server port
+    BACKEND_PORT = _get_int_env('BACKEND_PORT', '5001')  # Backend server port
 
 
 class DevelopmentConfig(Config):

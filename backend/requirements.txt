@@ -18,4 +18,6 @@ azure-core>=1.29.0  # Required for azure.core.credentials (used by Azure service
 # Data processing (required for metadata extraction)
 pyarrow==14.0.1
 pandas==2.1.4
+# Web server
+gunicorn==20.1.0
 
