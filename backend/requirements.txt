@@ -1,9 +1,21 @@
+# Flask and web framework
 Flask==3.0.0
 werkzeug==3.0.1
 Flask-CORS==4.0.0
+# Database
 pymysql==1.1.0
 cryptography==41.0.7
-python-dotenv==1.0.0
-pydantic==2.5.0
 DBUtils==3.0.3
+# Configuration
+python-dotenv==1.0.0
+# Data validation
+pydantic==2.5.0
+# Azure packages required for discovery service
+azure-storage-blob>=12.25.0
+azure-storage-file-datalake==12.19.0
+azure-identity==1.15.0
+azure-core>=1.29.0  # Required for azure.core.credentials (used by Azure services)
+# Data processing (required for metadata extraction)
+pyarrow==14.0.1
+pandas==2.1.4
 

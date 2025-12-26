@@ -16,6 +16,19 @@ config_file = Path(__file__).resolve()
 env_path = config_file.parent.parent / '.env'
 load_dotenv(dotenv_path=env_path, override=True)
 
+# Set TMPDIR to a writable location to prevent gunicorn permission errors
+# This ensures temp files (like PID files) can be created
+if 'TMPDIR' not in os.environ:
+    # Try common writable temp directories
+    for temp_dir in ['/tmp', '/var/tmp', os.path.expanduser('~/tmp')]:
+        if os.path.exists(temp_dir) and os.access(temp_dir, os.W_OK):
+            os.environ['TMPDIR'] = temp_dir
+            break
+    else:
+        # Fallback to system temp if available
+        import tempfile
+        os.environ['TMPDIR'] = tempfile.gettempdir()
+
 
 class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')

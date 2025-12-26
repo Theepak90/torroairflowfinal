@@ -19,6 +19,19 @@
 from __future__ import annotations
 
 import os
+import tempfile
+
+# Set TMPDIR to a writable location to prevent gunicorn permission errors
+# This ensures temp files (like PID files) can be created
+if 'TMPDIR' not in os.environ:
+    # Try common writable temp directories
+    for temp_dir in ['/tmp', '/var/tmp', os.path.expanduser('~/tmp')]:
+        if os.path.exists(temp_dir) and os.access(temp_dir, os.W_OK):
+            os.environ['TMPDIR'] = temp_dir
+            break
+    else:
+        # Fallback to system temp if available
+        os.environ['TMPDIR'] = tempfile.gettempdir()
 
 from airflow.www.fab_security.manager import AUTH_DB
 

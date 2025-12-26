@@ -85,7 +85,7 @@ def send_notification_email(discoveries: List[Dict], recipients: List[str]):
         smtp_port = DISCOVERY_CONFIG["smtp_port"]
         smtp_user = DISCOVERY_CONFIG["smtp_user"]
         smtp_password = DISCOVERY_CONFIG["smtp_password"]
-
+        
         # If SMTP creds are not configured, do not fail the DAG.
         # We want discovery to succeed even if notifications are not set up yet.
         if not smtp_user or not smtp_password:
